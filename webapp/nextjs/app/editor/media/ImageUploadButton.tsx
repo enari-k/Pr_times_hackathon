@@ -26,27 +26,29 @@ export default function ImageUploadButton({ editor }: Props) {
 
     setIsUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('file', file); // API側: formData.get('file')
+      // 🚨 S3(API)を使わず、ブラウザ上で画像をBase64文字列に変換する緊急回避策
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        if (dataUrl) {
+          // 変換したBase64文字列をそのままTiptapのエディタに流し込む
+          editor.chain().focus().setImage({ src: dataUrl }).run();
+        }
+        setIsUploading(false);
+      };
+      
+      reader.onerror = () => {
+        alert('画像の読み込みに失敗しました');
+        setIsUploading(false);
+      };
 
-      const res = await fetch('/api/images', {
-        method: 'POST',
-        body: fd,
-      });
+      // ファイルの読み込み開始
+      reader.readAsDataURL(file);
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || `アップロードに失敗しました (${res.status})`);
-      }
-
-      const data = (await res.json()) as { url?: string; id?: number };
-      if (!data.url) throw new Error('アップロードAPIの戻り値に url がありません');
-
-      editor.chain().focus().setImage({ src: data.url }).run();
     } catch (err: any) {
-      alert(err?.message ?? 'アップロードに失敗しました');
+      alert(err?.message ?? '画像の挿入に失敗しました');
       console.error(err);
-    } finally {
       setIsUploading(false);
     }
   };
@@ -111,7 +113,7 @@ export default function ImageUploadButton({ editor }: Props) {
         }}
         title="クリックで選択 / ここに画像をドラッグ&ドロップ"
       >
-        {isUploading ? 'アップロード中...' : 'クリックで選択 / ここに画像をドラッグ&ドロップ'}
+        {isUploading ? '読み込み中...' : 'クリックで選択 / ここに画像をドラッグ&ドロップ'}
       </button>
 
       <input

@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react';
-
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import Document from '@tiptap/extension-document';
 import Heading from '@tiptap/extension-heading';
 import Paragraph from '@tiptap/extension-paragraph';
@@ -11,19 +10,22 @@ import Text from '@tiptap/extension-text';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
+// mainブランチの拡張機能
 import BulletList from '@tiptap/extension-bullet-list';
 import OrderedList from '@tiptap/extension-ordered-list';
 import ListItem from '@tiptap/extension-list-item';
-import Image from '@tiptap/extension-image';
-// リンク拡張機能
 import Link from '@tiptap/extension-link';
+// 画像用の拡張機能
+import Image from '@tiptap/extension-image';
 
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
 
+// カウンターコンポーネント (mainブランチ)
 import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import TitleCounter from '@/components/editor/counter/TitleCounter';
 
+// 画像アップロードコンポーネント (s3-uploaderブランチ)
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
 
@@ -36,7 +38,9 @@ function usePressReleaseQuery() {
     queryKey,
     queryFn: async (): Promise<PressRelease> => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`);
-      if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTPエラー: ${response.status}`);
+      }
       return response.json();
     },
   });
@@ -50,10 +54,14 @@ function useSavePressReleaseMutation() {
     mutationFn: async (data: { title: string; content: string }) => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error('保存に失敗しました');
+      if (!response.ok) {
+        throw new Error('保存に失敗しました');
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -67,12 +75,12 @@ function useSavePressReleaseMutation() {
 }
 
 // --- ツールバー ---
-const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
+const Toolbar = ({ editor }: { editor: Editor | null }) => {
   if (!editor) return null;
 
   const getButtonStyle = (name: string) => {
     const isActive = editor.isActive(name);
-    return `px-3 py-2 border rounded font-bold transition-colors ${
+    return `px-4 py-2 border rounded font-bold transition-colors ${
       isActive 
         ? 'bg-blue-600 text-white border-blue-700' 
         : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
@@ -128,13 +136,20 @@ export default function EditorPage() {
     } else { initialContent = data.content; }
   }
 
-  return <PressReleaseEditor initialTitle={data.title ?? ''} initialContent={initialContent} />;
+  return <Editor initialTitle={data.title} initialContent={initialContent} />;
 }
 
-function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: string; initialContent: any }) {
+interface EditorProps {
+  initialTitle: string;
+  initialContent: any;
+}
+
+function Editor({ initialTitle, initialContent }: EditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [mounted, setMounted] = useState(false);
   const titleRef = useRef(title);
+  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSavedRef = useRef<string>('');
 
   useEffect(() => { titleRef.current = title; }, [title]);
   useEffect(() => setMounted(true), []);
@@ -153,12 +168,12 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
       ListItem,
       Image,
       Link.configure({
-        openOnClick: true,     // クリックでリンクを開く設定を有効化
-        autolink: true,        // URL入力時に自動でリンク化
+        openOnClick: true,
+        autolink: true,
         HTMLAttributes: {
           class: 'editor-link',
-          target: '_blank',     // 新しいタブで開く
-          rel: 'noopener noreferrer', // セキュリティ対策
+          target: '_blank',
+          rel: 'noopener noreferrer',
         },
       }),
     ],
@@ -168,27 +183,39 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
 
   const { isPending: isSaving, mutate } = useSavePressReleaseMutation();
 
-  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastSavedRef = useRef<string>('');
-
+  // 5秒ごとの自動保存ロジック（差分チェック付き）
   useEffect(() => {
     if (!editor) return;
+    
     lastSavedRef.current = JSON.stringify(editor.getJSON());
     if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
 
     autosaveTimerRef.current = setInterval(async () => {
       const currentTitle = titleRef.current;
       const currentContent = JSON.stringify(editor.getJSON());
+      
+      // 内容に変更がなければAPIを叩かない
       if (currentContent === lastSavedRef.current) return;
 
       try {
-        const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
+        const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: currentTitle, content: currentContent }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: currentTitle,
+            content: currentContent,
+          }),
         });
-        if (res.ok) { lastSavedRef.current = currentContent; }
-      } catch (e) { console.error('[autosave] error', e); }
+        
+        if (response.ok) { 
+          lastSavedRef.current = currentContent; 
+          console.log('📝 5秒ごとの自動保存が完了しました');
+        }
+      } catch (e) { 
+        console.error('[autosave] error', e); 
+      }
     }, 5000);
 
     return () => { if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current); };
@@ -215,29 +242,38 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
           <div className={styles.titleInputWrapper}>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトルを入力" className={styles.titleInput} />
           </div>
-
+          
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
-            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            
+            {/* 画像関連のボタン */}
+            <div style={{ margin: '12px', display: 'flex', gap: '8px' }}>
               <ImageUploadButton editor={editor} />
               <ImageUrlInsert editor={editor} />
             </div>
+
             <div className="tiptap-container">
-              <EditorContent editor={editor} className={styles.editorContent} />
+              <EditorContent editor={editor} />
             </div>
           </div>
-          <TitleCounter title={title} />
-          <CharacterCounter editor={editor} />
         </div>
+
+        <TitleCounter title={title} />
+        <CharacterCounter editor={editor} />
       </main>
 
       <style jsx global>{`
         .tiptap-container .tiptap {
-          padding: 1.5rem;
+          padding: 1rem;
           min-height: 400px;
           outline: none;
           color: black;
           background-color: white;
+        }
+        .tiptap-container .tiptap img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 4px;
         }
         /* リンクの見た目とホバー時のポインタ */
         .tiptap-container .tiptap a, .editor-link {
