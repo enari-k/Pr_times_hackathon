@@ -1,5 +1,7 @@
 'use client';
 
+import CharacterCounter from '@/components/editor/counter/CharacterCounter';
+import TitleCounter from '@/components/editor/counter/TitleCounter';
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -14,6 +16,7 @@ import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
 import Image from '@tiptap/extension-image';
 import ImageUrlInsert from './media/ImageUrlInsert';
+import { validateContent, validateTitle } from '@/utils/validation';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
