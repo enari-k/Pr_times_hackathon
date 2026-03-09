@@ -1,5 +1,6 @@
 'use client';
 
+import { validateTitle, validateContent } from '@/utils/validation';
 import TitleCounter from '@/components/editor/counter/TitleCounter';
 import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import { useState } from 'react';
@@ -95,6 +96,21 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
 
   const handleSave = () => {
     if (!editor) return;
+
+    const text = editor.getText();
+
+    const titleError = validateTitle(title);
+    const contentError = validateContent(text);
+
+    if (titleError) {
+      alert(titleError);
+      return;
+    }
+
+    if (contentError) {
+      alert(contentError);
+      return;
+    }
 
     mutate({
       title,
