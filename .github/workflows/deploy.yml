@@ -3,8 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - main  # mainブランチに変更がプッシュされたら自動で動きます
-
+      - main
 
 jobs:
   deploy:
@@ -17,17 +16,27 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. nvm (Node.jsとnpm) を読み込むための設定
+            set -e
+
+            # nvm
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            # EC2に入ってから実行するコマンド
-            cd ~/Pr_times_hackathon/webapp/nextjs
-            git pull origin main
-            npm install
-            npm run build
-            # PM2でNext.jsを再起動（無ければ起動）
-            pm2 restart nextjs-app || pm2 start npm --name "nextjs-app" -- start
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+            # Nodeを固定（推奨：20）
+            nvm install 20
+            nvm use 20
+
+            # env（pm2起動前に設定）
             export AWS_REGION="ap-southeast-2"
             export S3_BUCKET="${{ secrets.S3_BUCKET }}"
 
-            pm2 restart nextjs-app --update-env || pm2 start npm --name "nextjs-app" -- start
+            cd /home/ubuntu/Pr_times_hackathon/webapp/nextjs
+            git pull origin main
+
+            npm ci
+            npm run build
+
+            # standalone起動（next startではなく）
+            pm2 restart nextjs-app --update-env || pm2 start "node .next/standalone/server.js" --name "nextjs-app" --update-env
+
+            pm2 save
