@@ -113,7 +113,7 @@ const Toolbar = ({ editor }: { editor: any }) => {
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         className={getButtonStyle('orderedList')}
       >
-        1. 番号付き
+        1. 番号
       </button>
     </div>
   );
