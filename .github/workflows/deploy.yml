@@ -5,6 +5,7 @@ on:
     branches:
       - main  # mainブランチに変更がプッシュされたら自動で動きます
 
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
