@@ -98,3 +98,10 @@
 .error {
   color: #dc3545;
 }
+
+.editorContent img {
+  max-width: auto;
+  height: auto;
+  display: block;
+  margin: 12px 0;
+}
