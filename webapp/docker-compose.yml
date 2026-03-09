@@ -17,20 +17,5 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    build: ./python  # Default: PHP. Change to ./python or ./go as needed
-    container_name: press-release-app
-    ports:
-      - "8080:8080"
-    environment:
-      DB_HOST: postgresql
-      DB_PORT: 5432
-      DB_USER: press_release
-      DB_PASSWORD: press_release
-      DB_NAME: press_release_db
-    depends_on:
-      postgresql:
-        condition: service_healthy
-
 volumes:
   postgres_data:

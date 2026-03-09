@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react';
 
@@ -11,6 +11,15 @@ import Text from '@tiptap/extension-text';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
+import Image from '@tiptap/extension-image';
+
+import CharacterCounter from '@/components/editor/counter/CharacterCounter';
+import TitleCounter from '@/components/editor/counter/TitleCounter';
+
+import ImageUploadButton from './media/ImageUploadButton';
+import ImageUrlInsert from './media/ImageUrlInsert';
+
+import { validateContent, validateTitle } from '@/utils/validation';
 
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
@@ -37,7 +46,7 @@ function useSavePressReleaseMutation() {
   return useMutation({
     mutationFn: async (data: { title: string; content: string }) => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
-        method: 'POST', // 上書きならPUT/PATCH推奨（API側に合わせてOK）
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
@@ -116,33 +125,26 @@ export default function EditorPage() {
 
   // tiptapのcontentは「JSONオブジェクト」か「HTML文字列」
   let initialContent: any = '';
-if (data.content != null) {
-  if (typeof data.content === 'string') {
-    try {
-      initialContent = JSON.parse(data.content);
-    } catch {
+  if (data.content != null) {
+    if (typeof data.content === 'string') {
+      try {
+        initialContent = JSON.parse(data.content);
+      } catch {
+        initialContent = data.content;
+      }
+    } else {
       initialContent = data.content;
     }
-  } else {
-    initialContent = data.content;
   }
+
+  return <PressReleaseEditor initialTitle={data.title ?? ''} initialContent={initialContent} />;
 }
 
-  return (
-    <PressReleaseEditor initialTitle={data.title ?? ''} initialContent={initialContent} />
-  );
-}
-
-interface EditorProps {
-  initialTitle: string;
-  initialContent: any; // tiptapのJSON/HTML想定。厳密化したければJSONContent型などにできます
-}
-
-function PressReleaseEditor({ initialTitle, initialContent }: EditorProps) {
+function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: string; initialContent: any }) {
   const [title, setTitle] = useState(initialTitle);
   const [mounted, setMounted] = useState(false);
 
-  // 最新タイトルをinterval内で参照するため
+  // interval内で最新title参照
   const titleRef = useRef(title);
   useEffect(() => {
     titleRef.current = title;
@@ -151,41 +153,97 @@ function PressReleaseEditor({ initialTitle, initialContent }: EditorProps) {
   useEffect(() => setMounted(true), []);
 
   const editor = useEditor({
-    extensions: [Document, Heading, Paragraph, Text, Bold, Italic, Underline],
+    extensions: [Document, Heading, Paragraph, Text, Bold, Italic, Underline, Image],
     content: initialContent,
     immediatelyRender: false,
   });
 
   const { isPending: isSaving, mutate } = useSavePressReleaseMutation();
-const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-useEffect(() => {
-  if (!editor) return;
+  // --- 自動保存（重複防止 + 変更時のみ送信）---
+  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSavedRef = useRef<string>(''); // 前回保存したJSON
 
-  // 既に動いてたら止める（重複防止）
-  if (autosaveTimerRef.current) {
-    clearInterval(autosaveTimerRef.current);
-  }
-
-  autosaveTimerRef.current = setInterval(() => {
-    // autosave
-  }, 5000);
-
-  return () => {
-    if (autosaveTimerRef.current) {
-      clearInterval(autosaveTimerRef.current);
-      autosaveTimerRef.current = null;
-    }
-  };
-}, [editor]);
-
-  const handleSave = () => {
+  useEffect(() => {
     if (!editor) return;
 
-    mutate({
-      title,
-      content: JSON.stringify(editor.getJSON()),
+    // 初期状態を「保存済み」として扱う
+    lastSavedRef.current = JSON.stringify(editor.getJSON());
+
+    // 重複防止
+    if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
+
+    autosaveTimerRef.current = setInterval(async () => {
+      const currentTitle = titleRef.current;
+      const currentContent = JSON.stringify(editor.getJSON());
+
+      if (currentContent === lastSavedRef.current) return;
+
+      try {
+        const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: currentTitle, content: currentContent }),
+        });
+
+        if (res.ok) {
+          lastSavedRef.current = currentContent;
+          console.log('[autosave] saved', new Date().toISOString());
+        } else {
+          console.error('[autosave] failed', res.status);
+        }
+      } catch (e) {
+        console.error('[autosave] network error', e);
+      }
+    }, 5000);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearInterval(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
+  }, [editor]);
+
+  // --- 手動保存 ---
+  const handleSave = async () => {
+    if (!editor) return;
+
+    const titleError = validateTitle(title);
+    const contentError = validateContent(editor.getText());
+
+    if (titleError) {
+      alert(titleError);
+      return;
+    }
+    if (contentError) {
+      alert(contentError);
+      return;
+    }
+
+    // サーバ側バリデーション（あるなら）
+    const validateResponse = await fetch('/api/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        content: editor.getText(),
+      }),
     });
+
+    if (!validateResponse.ok) {
+      // ここはAPI仕様に合わせてメッセージを出す
+      const err = await validateResponse.json().catch(() => null);
+      console.error('validate failed', err);
+      alert('バリデーションに失敗しました');
+      return;
+    }
+
+    const content = JSON.stringify(editor.getJSON());
+    mutate({ title, content });
+
+    // 自動保存が直後に同じ内容を投げないように
+    lastSavedRef.current = content;
   };
 
   if (!mounted) return null;
@@ -213,10 +271,20 @@ useEffect(() => {
 
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
+
+            <div style={{ margin: '12px 0', padding: '0 12px', display: 'flex', gap: 8 }}>
+              <ImageUploadButton editor={editor} />
+              <ImageUrlInsert editor={editor} />
+            </div>
+
             <div className="tiptap-container">
-              <EditorContent editor={editor} />
+              <EditorContent editor={editor} className={styles.editorContent} />
             </div>
           </div>
+
+          {/* カウンター類（存在する前提） */}
+          <TitleCounter title={title} />
+          <CharacterCounter editor={editor} />
         </div>
       </main>
 
