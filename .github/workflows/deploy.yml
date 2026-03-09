@@ -2,8 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
@@ -16,26 +15,31 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-                  set -e
+            set -euxo pipefail
 
-                  export NVM_DIR="$HOME/.nvm"
-                  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm install 20
+            nvm use 20
 
-                  nvm install 20
-                  nvm use 20
+            command -v pm2 >/dev/null 2>&1 || npm i -g pm2
 
-                  # pm2 が無ければ入れる（初回対策）
-                  command -v pm2 >/dev/null 2>&1 || npm i -g pm2
+            export AWS_REGION="ap-southeast-2"
+            export S3_BUCKET="${{ secrets.S3_BUCKET }}"
 
-                  export AWS_REGION="ap-southeast-2"
-                  export S3_BUCKET="${{ secrets.S3_BUCKET }}"
+            cd /home/ubuntu/Pr_times_hackathon/webapp/nextjs
+            git pull origin main
 
-                  cd /home/ubuntu/Pr_times_hackathon/webapp/nextjs
-                  git pull origin main
+            npm ci
+            npm run build
 
-                  npm ci
-                  npm run build
+            # standaloneが生成されていることを確認
+            ls -la .next/standalone/server.js
 
-                  PM2="$(npm bin -g)/pm2"
-                  $PM2 restart nextjs-app --update-env || $PM2 start "node .next/standalone/server.js" --name "nextjs-app" --update-env
-                  $PM2 save
+            PM2="$(npm bin -g)/pm2"
+            $PM2 -v
+            $PM2 ls || true
+
+            # 起動/再起動
+            $PM2 restart nextjs-app --update-env || $PM2 start "node .next/standalone/server.js" --name "nextjs-app" --update-env
+            $PM2 save
