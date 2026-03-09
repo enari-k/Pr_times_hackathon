@@ -1,5 +1,7 @@
 'use client';
 
+import TitleCounter from '@/components/editor/counter/TitleCounter';
+import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -120,6 +122,8 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
           </div>
           <EditorContent editor={editor} />
         </div>
+        <TitleCounter title={title} />
+        <CharacterCounter editor={editor} />
       </main>
     </div>
   );
