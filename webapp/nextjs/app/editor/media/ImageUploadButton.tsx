@@ -3,8 +3,6 @@
 import { useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 
-const PRESS_RELEASE_ID = 1; 
-
 type Props = { editor: Editor | null };
 
 export default function ImageUploadButton({ editor }: Props) {
@@ -30,14 +28,15 @@ export default function ImageUploadButton({ editor }: Props) {
       const fd = new FormData();
       fd.append('file', file);
 
-      const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
+      // ✅ ここを /api/images にする
+      const res = await fetch('/api/images', {
         method: 'POST',
         body: fd,
       });
 
       if (!res.ok) throw new Error(await res.text());
 
-      const data: { url: string } = await res.json();
+      const data: { url: string; id?: number } = await res.json();
 
       editor.chain().focus().setImage({ src: data.url }).run();
     } catch (err: any) {
@@ -49,22 +48,21 @@ export default function ImageUploadButton({ editor }: Props) {
 
   return (
     <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-      <button type="button" onClick={pick} disabled={!editor || isUploading} style={{
+      <button
+        type="button"
+        onClick={pick}
+        disabled={!editor || isUploading}
+        style={{
           padding: '10px 12px',
           borderRadius: 8,
           border: '1px solid #ddd',
           background: '#fff',
           cursor: 'pointer',
-        }}>
+        }}
+      >
         {isUploading ? 'アップロード中...' : '画像アップロード'}
       </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        onChange={onChange}
-        style={{ display: 'none' }}
-      />
+      <input ref={inputRef} type="file" accept="image/*" onChange={onChange} style={{ display: 'none' }} />
     </div>
   );
 }
