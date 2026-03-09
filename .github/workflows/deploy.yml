@@ -33,9 +33,6 @@ jobs:
             npm ci
             npm run build
 
-            # standaloneが生成されていることを確認
-            ls -la .next/standalone/server.js
-
             PM2="$(npm bin -g)/pm2"
             $PM2 -v
             $PM2 ls || true
