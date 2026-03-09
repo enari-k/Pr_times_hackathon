@@ -18,7 +18,7 @@ jobs:
             set -euxo pipefail
 
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             nvm install 20
             nvm use 20
 
@@ -32,11 +32,9 @@ jobs:
 
             npm ci
             npm run build
-
-            PM2="$(npm bin -g)/pm2"
-            $PM2 -v
-            $PM2 ls || true
-
-            # 起動/再起動
-            $PM2 restart nextjs-app --update-env || $PM2 start "node .next/standalone/server.js" --name "nextjs-app" --update-env
-            $PM2 save
+            
+            # 起動/再起動 (npx pm2 で統一)
+            npx pm2 restart nextjs-app --update-env || npx pm2 start npm --name "nextjs-app" -- start --update-env
+            
+            # PM2の現在の状態を保存 (EC2再起動時に自動復帰するため)
+            npx pm2 save
