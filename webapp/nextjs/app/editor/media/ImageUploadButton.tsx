@@ -3,8 +3,6 @@
 import { useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 
-const PRESS_RELEASE_ID = 1;
-
 type Props = { editor: Editor | null };
 
 export default function ImageUploadButton({ editor }: Props) {
@@ -13,6 +11,7 @@ export default function ImageUploadButton({ editor }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const pick = () => inputRef.current?.click();
+
   const upload = async (file: File) => {
     if (!editor) return;
 
@@ -26,14 +25,17 @@ export default function ImageUploadButton({ editor }: Props) {
       const fd = new FormData();
       fd.append('file', file);
 
-      const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
+      // ✅ 画像は /api/images にアップロード
+      const res = await fetch('/api/images', {
         method: 'POST',
         body: fd,
       });
 
       if (!res.ok) throw new Error(await res.text());
 
-      const data: { url: string } = await res.json();
+      // サーバが { url, id } を返しても、最低urlがあればOK
+      const data: { url: string; id?: number } = await res.json();
+
       editor.chain().focus().setImage({ src: data.url }).run();
     } catch (err: any) {
       alert(err?.message ?? 'アップロードに失敗しました');
