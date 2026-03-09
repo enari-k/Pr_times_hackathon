@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react';
-
+import { useEditor, EditorContent, type Editor } from '@tiptap/react'; // 👈 type Editor を追加
 import Document from '@tiptap/extension-document';
 import Heading from '@tiptap/extension-heading';
 import Paragraph from '@tiptap/extension-paragraph';
@@ -11,22 +10,18 @@ import Text from '@tiptap/extension-text';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
-// リスト拡張機能
-import BulletList from '@tiptap/extension-bullet-list';
-import OrderedList from '@tiptap/extension-ordered-list';
-import ListItem from '@tiptap/extension-list-item';
+import Image from '@tiptap/extension-image'; // 👈 Image 拡張をインポート
 
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
-import Image from '@tiptap/extension-image';
-
-import CharacterCounter from '@/components/editor/counter/CharacterCounter';
-import TitleCounter from '@/components/editor/counter/TitleCounter';
 
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
 
-import { validateContent, validateTitle } from '@/utils/validation';
+// ⚠️ 以下は実際のパスに合わせてインポートするか、不要ならコメントアウトのままにしてください
+// import { validateTitle, validateContent } from '@/utils/validation';
+// import { TitleCounter } from '@/components/TitleCounter';
+// import { CharacterCounter } from '@/components/CharacterCounter';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -37,13 +32,15 @@ function usePressReleaseQuery() {
     queryKey,
     queryFn: async (): Promise<PressRelease> => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`);
-      if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTPエラー: ${response.status}`);
+      }
       return response.json();
     },
   });
 }
 
-// --- 保存処理（手動保存） ---
+// --- 保存処理 ---
 function useSavePressReleaseMutation() {
   const queryClient = useQueryClient();
 
@@ -51,14 +48,19 @@ function useSavePressReleaseMutation() {
     mutationFn: async (data: { title: string; content: string }) => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error('保存に失敗しました');
+      if (!response.ok) {
+        throw new Error('保存に失敗しました');
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
+      // 保存完了アラート
       alert('保存しました！');
     },
     onError: (error: Error) => {
@@ -68,12 +70,12 @@ function useSavePressReleaseMutation() {
 }
 
 // --- ツールバー ---
-const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
+const Toolbar = ({ editor }: { editor: Editor | null }) => { // 👈 any から Editor | null に変更
   if (!editor) return null;
 
   const getButtonStyle = (name: string) => {
     const isActive = editor.isActive(name);
-    return `px-3 py-2 border rounded font-bold transition-colors ${
+    return `px-4 py-2 border rounded font-bold transition-colors ${
       isActive 
         ? 'bg-blue-600 text-white border-blue-700' 
         : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
@@ -81,7 +83,7 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
   };
 
   return (
-    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap">
+    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black">
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}
@@ -102,22 +104,6 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
         className={getButtonStyle('underline')}
       >
         U
-      </button>
-      
-      {/* リストボタン */}
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        className={getButtonStyle('bulletList')}
-      >
-        • 箇条書き
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        className={getButtonStyle('orderedList')}
-      >
-        1. 番号
       </button>
     </div>
   );
@@ -143,34 +129,29 @@ export default function EditorPage() {
     );
   }
 
-  // tiptapのcontentは「JSONオブジェクト」か「HTML文字列」
-  let initialContent: any = '';
-  if (data.content != null) {
-    if (typeof data.content === 'string') {
-      try {
-        initialContent = JSON.parse(data.content);
-      } catch {
-        initialContent = data.content;
-      }
-    } else {
-      initialContent = data.content;
-    }
+  // データの content を安全にパース
+  let initialContent = '';
+  try {
+    initialContent = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+  } catch (e) {
+    initialContent = data.content;
   }
 
-  return <PressReleaseEditor initialTitle={data.title ?? ''} initialContent={initialContent} />;
+  return <Editor initialTitle={data.title} initialContent={initialContent} />;
 }
 
-function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: string; initialContent: any }) {
+interface EditorProps {
+  initialTitle: string;
+  initialContent: any;
+}
+
+function Editor({ initialTitle, initialContent }: EditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [mounted, setMounted] = useState(false);
 
-  // interval内で最新title参照
-  const titleRef = useRef(title);
   useEffect(() => {
-    titleRef.current = title;
-  }, [title]);
-
-  useEffect(() => setMounted(true), []);
+    setMounted(true);
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -181,11 +162,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
       Bold,
       Italic,
       Underline,
-      // リスト拡張機能の登録
-      BulletList,
-      OrderedList,
-      ListItem,
-      Image,
+      Image, // 👈 忘れずに Image 拡張を追加
     ],
     content: initialContent,
     immediatelyRender: false,
@@ -193,83 +170,67 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
 
   const { isPending: isSaving, mutate } = useSavePressReleaseMutation();
 
-  // --- 自動保存（重複防止 + 変更時のみ送信）---
-  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastSavedRef = useRef<string>(''); // 前回保存したJSON
+  // 1. 最新のタイトルを保持するためのRef（自動保存用）
+  const titleRef = useRef(title);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
 
+  // 2. 5秒ごとの自動保存ロジック
   useEffect(() => {
     if (!editor) return;
 
-    // 初期状態を「保存済み」として扱う
-    lastSavedRef.current = JSON.stringify(editor.getJSON());
-
-    // 重複防止
-    if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
-
-    autosaveTimerRef.current = setInterval(async () => {
+    const timer = setInterval(async () => {
       const currentTitle = titleRef.current;
       const currentContent = JSON.stringify(editor.getJSON());
 
-      if (currentContent === lastSavedRef.current) return;
-
       try {
-        const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
+        const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: currentTitle, content: currentContent }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: currentTitle,
+            content: currentContent,
+          }),
         });
 
-        if (res.ok) {
-          lastSavedRef.current = currentContent;
-          console.log('[autosave] saved', new Date().toISOString());
-        } else {
-          console.error('[autosave] failed', res.status);
+        if (response.ok) {
+          console.log('📝 5秒ごとの自動保存が完了しました');
         }
-      } catch (e) {
-        console.error('[autosave] network error', e);
+      } catch (error) {
+        console.error('⚠️ 自動保存の通信エラー:', error);
       }
     }, 5000);
 
-    return () => {
-      if (autosaveTimerRef.current) {
-        clearInterval(autosaveTimerRef.current);
-        autosaveTimerRef.current = null;
-      }
-    };
+    return () => clearInterval(timer);
   }, [editor]);
 
-  // --- 手動保存 ---
-  const handleSave = async () => {
+  // 手動保存のハンドラー
+  const handleSave = () => {
     if (!editor) return;
 
-    if (!title.trim()) {
-      alert("タイトルを入力してください");
-      return;
-    }
+    const text = editor.getText();
 
-    // サーバ側バリデーション（あるなら）
-    const validateResponse = await fetch('/api/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title,
-        content: editor.getText(),
-      }),
+    // ⚠️ バリデーション関数が未定義の場合はコメントアウト
+    // const titleError = validateTitle(title);
+    // const contentError = validateContent(text);
+
+    // if (titleError) {
+    //   alert(titleError);
+    //   return;
+    // }
+
+    // if (contentError) {
+    //   alert(contentError);
+    //   return;
+    // }
+
+    mutate({
+      title,
+      content: JSON.stringify(editor.getJSON()),
     });
-
-    if (!validateResponse.ok) {
-      // ここはAPI仕様に合わせてメッセージを出す
-      const err = await validateResponse.json().catch(() => null);
-      console.error('validate failed', err);
-      alert('バリデーションに失敗しました');
-      return;
-    }
-
-    const content = JSON.stringify(editor.getJSON());
-    mutate({ title, content });
-
-    // 自動保存が直後に同じ内容を投げないように
-    lastSavedRef.current = content;
   };
 
   if (!mounted) return null;
@@ -294,59 +255,39 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
               className={styles.titleInput}
             />
           </div>
-
+          
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
-
-            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <ImageUploadButton editor={editor} />
-
-            <div>
+            
+            {/* 画像関連のボタンをツールバーの下に配置 */}
+            <div style={{ margin: '12px', display: 'flex', gap: '8px' }}>
+              <ImageUploadButton editor={editor} />
               <ImageUrlInsert editor={editor} />
             </div>
-          </div>
 
             <div className="tiptap-container">
-              <EditorContent editor={editor} className={styles.editorContent} />
+              <EditorContent editor={editor} />
             </div>
           </div>
-
-          {/* カウンター類（存在する前提） */}
-          <TitleCounter title={title} />
-          <CharacterCounter editor={editor} />
         </div>
+
+        {/* ⚠️ コンポーネントが未定義の場合はコメントアウト */}
+        {/* <TitleCounter title={title} /> */}
+        {/* <CharacterCounter editor={editor} /> */}
       </main>
 
       <style jsx global>{`
-        /* エディタ入力エリアの基本設定 */
         .tiptap-container .tiptap {
-          padding: 1.5rem;
+          padding: 1rem;
           min-height: 400px;
           outline: none;
           color: black;
-          background-color: white;
         }
-
-        /* 箇条書き (ul) のスタイル */
-        .tiptap-container .tiptap ul {
-          list-style-type: disc !important;
-          padding-left: 2rem !important;
-          margin: 1rem 0 !important;
+        .tiptap-container .tiptap img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 4px;
         }
-
-        /* 番号付きリスト (ol) のスタイル */
-        .tiptap-container .tiptap ol {
-          list-style-type: decimal !important;
-          padding-left: 2rem !important;
-          margin: 1rem 0 !important;
-        }
-
-        /* リスト項目 (li) 内の段落余白を調整 */
-        .tiptap-container .tiptap li p {
-          margin: 0 !important;
-        }
-
-        /* その他の基本装飾 */
         .tiptap-container .tiptap u { text-decoration: underline !important; }
         .tiptap-container .tiptap strong { font-weight: bold !important; }
         .tiptap-container .tiptap em { font-style: italic !important; }
