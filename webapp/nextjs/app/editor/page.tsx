@@ -12,6 +12,7 @@ import Text from '@tiptap/extension-text';
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
 import Image from '@tiptap/extension-image';
+import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
 
 const PRESS_RELEASE_ID = 1;
@@ -123,9 +124,10 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
             />
           </div>
           <div style={{ margin: '12px 0' }}>
+            <ImageUploadButton editor={editor} />
             <ImageUrlInsert editor={editor} />
           </div>
-          <EditorContent editor={editor} />
+          <EditorContent editor={editor} className={styles.editorContent} />
         </div>
         <TitleCounter title={title} />
         <CharacterCounter editor={editor} />
