@@ -1,42 +1,17 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Tiptapエディタ内の装飾を有効にする */
+.tiptap-content u {
+  text-decoration: underline !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.tiptap-content strong {
+  font-weight: bold !important;
 }
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
+.tiptap-content em {
+  font-style: italic !important;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* 入力中、どの行にいるか分かりやすくする（任意） */
+.tiptap-content p {
+  margin-bottom: 0.5rem;
 }
