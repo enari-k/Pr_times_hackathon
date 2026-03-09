@@ -170,7 +170,7 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
     };
   }, [editor]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editor) return;
 
     const text = editor.getText();
@@ -180,11 +180,25 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
 
     if (titleError) {
       alert(titleError);
-      return;
     }
 
     if (contentError) {
       alert(contentError);
+    }
+
+    const validateResponse = await fetch('/api/validate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title,
+        content: editor.getText(),
+      }),
+    });
+
+    if (!validateResponse.ok) {
+      const error = await validateResponse.json();
       return;
     }
 
