@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react';
+
 import Document from '@tiptap/extension-document';
 import Heading from '@tiptap/extension-heading';
 import Paragraph from '@tiptap/extension-paragraph';
@@ -10,10 +11,9 @@ import Text from '@tiptap/extension-text';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
+
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
-import Image from '@tiptap/extension-image';
-import ImageUrlInsert from './media/ImageUrlInsert';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -24,30 +24,24 @@ function usePressReleaseQuery() {
     queryKey,
     queryFn: async (): Promise<PressRelease> => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`);
-      if (!response.ok) {
-        throw new Error(`HTTPエラー: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
       return response.json();
     },
   });
 }
 
-// --- 保存処理 ---
+// --- 保存処理（手動保存） ---
 function useSavePressReleaseMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: { title: string; content: string }) => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        method: 'POST', // 上書きならPUT/PATCH推奨（API側に合わせてOK）
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!response.ok) {
-        throw new Error('保存に失敗しました');
-      }
+      if (!response.ok) throw new Error('保存に失敗しました');
       return response.json();
     },
     onSuccess: () => {
@@ -60,15 +54,15 @@ function useSavePressReleaseMutation() {
   });
 }
 
-// --- ツールバー（追加分） ---
-const Toolbar = ({ editor }: { editor: any }) => {
+// --- ツールバー ---
+const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
   if (!editor) return null;
 
   const getButtonStyle = (name: string) => {
     const isActive = editor.isActive(name);
     return `px-4 py-2 border rounded font-bold transition-colors ${
-      isActive 
-        ? 'bg-blue-600 text-white border-blue-700' 
+      isActive
+        ? 'bg-blue-600 text-white border-blue-700'
         : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
     }`;
   };
@@ -120,70 +114,73 @@ export default function EditorPage() {
     );
   }
 
-  // データの content を安全にパース
-  let initialContent = '';
-  try {
-    initialContent = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-  } catch (e) {
+  // tiptapのcontentは「JSONオブジェクト」か「HTML文字列」
+  let initialContent: any = '';
+if (data.content != null) {
+  if (typeof data.content === 'string') {
+    try {
+      initialContent = JSON.parse(data.content);
+    } catch {
+      initialContent = data.content;
+    }
+  } else {
     initialContent = data.content;
   }
+}
 
-  return <Editor initialTitle={data.title} initialContent={initialContent} />;
+  return (
+    <PressReleaseEditor initialTitle={data.title ?? ''} initialContent={initialContent} />
+  );
 }
 
 interface EditorProps {
   initialTitle: string;
-  initialContent: any;
+  initialContent: any; // tiptapのJSON/HTML想定。厳密化したければJSONContent型などにできます
 }
 
-function Editor({ initialTitle, initialContent }: EditorProps) {
+function PressReleaseEditor({ initialTitle, initialContent }: EditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [mounted, setMounted] = useState(false);
 
+  // 最新タイトルをinterval内で参照するため
+  const titleRef = useRef(title);
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    titleRef.current = title;
+  }, [title]);
+
+  useEffect(() => setMounted(true), []);
 
   const editor = useEditor({
-    extensions: [
-      Document,
-      Heading,
-      Paragraph,
-      Text,
-      Bold,      // 追加
-      Italic,    // 追加
-      Underline, // 追加
-    ],
+    extensions: [Document, Heading, Paragraph, Text, Bold, Italic, Underline],
     content: initialContent,
     immediatelyRender: false,
   });
 
   const { isPending: isSaving, mutate } = useSavePressReleaseMutation();
+const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // エディタ破棄用のクリーンアップ
-  useEffect(() => {
-    return () => {
-      editor?.destroy();
-    };
-  }, [editor]);
+useEffect(() => {
+  if (!editor) return;
+
+  // 既に動いてたら止める（重複防止）
+  if (autosaveTimerRef.current) {
+    clearInterval(autosaveTimerRef.current);
+  }
+
+  autosaveTimerRef.current = setInterval(() => {
+    // autosave
+  }, 5000);
+
+  return () => {
+    if (autosaveTimerRef.current) {
+      clearInterval(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+  };
+}, [editor]);
 
   const handleSave = () => {
     if (!editor) return;
-
-    const text = editor.getText();
-
-    const titleError = validateTitle(title);
-    const contentError = validateContent(text);
-
-    if (titleError) {
-      alert(titleError);
-      return;
-    }
-
-    if (contentError) {
-      alert(contentError);
-      return;
-    }
 
     mutate({
       title,
@@ -213,8 +210,7 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
               className={styles.titleInput}
             />
           </div>
-          
-          {/* ツールバーとエディタ本体をまとめた枠 */}
+
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
             <div className="tiptap-container">
@@ -222,8 +218,6 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
             </div>
           </div>
         </div>
-        <TitleCounter title={title} />
-        <CharacterCounter editor={editor} />
       </main>
 
       <style jsx global>{`
@@ -233,10 +227,18 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
           outline: none;
           color: black;
         }
-        .tiptap-container .tiptap u { text-decoration: underline !important; }
-        .tiptap-container .tiptap strong { font-weight: bold !important; }
-        .tiptap-container .tiptap em { font-style: italic !important; }
-        .tiptap-container .tiptap p { margin-bottom: 1rem; }
+        .tiptap-container .tiptap u {
+          text-decoration: underline !important;
+        }
+        .tiptap-container .tiptap strong {
+          font-weight: bold !important;
+        }
+        .tiptap-container .tiptap em {
+          font-style: italic !important;
+        }
+        .tiptap-container .tiptap p {
+          margin-bottom: 1rem;
+        }
       `}</style>
     </div>
   );
