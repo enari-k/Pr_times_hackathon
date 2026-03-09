@@ -14,22 +14,6 @@ docker compose up -d
 
 ### 2. フロントエンドを1つ選んで起動
 
-React 版:
-
-```bash
-cd webapp/frontend/react
-npm install
-npm run dev
-```
-
-Vue 版:
-
-```bash
-cd webapp/frontend/vue
-npm install
-npm run dev
-```
-
 Next.js 版:
 
 ```bash
@@ -42,13 +26,8 @@ npm run dev
 
 - **データベース**: PostgreSQL 16
 - **バックエンド実装**（デフォルト: PHP）
-  - ✅ PHP 8.5（Slim Framework 4）
   - ✅ Python 3.14（FastAPI）
-  - ✅ Go 1.25（Chi + pgx）
-  - ✅ Node.js（Hono）
 - **フロントエンド**
-  - ✅ React + Vite
-  - ✅ Vue + Vite
   - ✅ Next.js
 
 ## 詳細情報
