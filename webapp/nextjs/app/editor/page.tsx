@@ -28,9 +28,6 @@ import ImageUrlInsert from './media/ImageUrlInsert';
 
 import { validateContent, validateTitle } from '@/utils/validation';
 
-import type { PressRelease } from '@/lib/types';
-import styles from './page.module.css';
-
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
 
@@ -188,6 +185,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
       BulletList,
       OrderedList,
       ListItem,
+      Image,
     ],
     content: initialContent,
     immediatelyRender: false,
