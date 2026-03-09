@@ -16,6 +16,8 @@ import Image from '@tiptap/extension-image';
 import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import TitleCounter from '@/components/editor/counter/TitleCounter';
 
+import LinkCard from '@/components/editor/plugins/LinkCard';
+
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
 
@@ -282,10 +284,12 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
             </div>
           </div>
 
+
           {/* カウンター類（存在する前提） */}
           <TitleCounter title={title} />
           <CharacterCounter editor={editor} />
         </div>
+        <LinkCard editor={editor} />
       </main>
 
       <style jsx global>{`
