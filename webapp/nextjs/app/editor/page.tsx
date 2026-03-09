@@ -13,6 +13,7 @@ import Underline from '@tiptap/extension-underline';
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
 import Image from '@tiptap/extension-image';
+import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
 
 const PRESS_RELEASE_ID = 1;
@@ -213,14 +214,11 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
               className={styles.titleInput}
             />
           </div>
-          
-          {/* ツールバーとエディタ本体をまとめた枠 */}
-          <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-            <Toolbar editor={editor} />
-            <div className="tiptap-container">
-              <EditorContent editor={editor} />
-            </div>
+          <div style={{ margin: '12px 0' }}>
+            <ImageUploadButton editor={editor} />
+            <ImageUrlInsert editor={editor} />
           </div>
+          <EditorContent editor={editor} className={styles.editorContent} />
         </div>
         <TitleCounter title={title} />
         <CharacterCounter editor={editor} />

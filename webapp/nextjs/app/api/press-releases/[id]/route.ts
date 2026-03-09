@@ -71,55 +71,83 @@ export async function POST(
   }
 
   const id = parseInt(idParam, 10);
-
-  let bodyText: string;
-  try {
-    bodyText = await request.text();
-  } catch (error) {
-    return NextResponse.json(
-      { code: 'INVALID_JSON', message: 'Invalid JSON' } satisfies ErrorResponse,
-      { status: 400 }
-    );
-  }
-
-  if (bodyText.trim() === '') {
-    return NextResponse.json(
-      { code: 'INVALID_JSON', message: 'Invalid JSON' } satisfies ErrorResponse,
-      { status: 400 }
-    );
-  }
-
-  let data: unknown;
-  try {
-    data = JSON.parse(bodyText);
-  } catch (error) {
-    return NextResponse.json(
-      { code: 'INVALID_JSON', message: 'Invalid JSON' } satisfies ErrorResponse,
-      { status: 400 }
-    );
-  }
-
-  const validationResult = PressReleaseInputSchema.safeParse(data);
-  if (!validationResult.success) {
-    return NextResponse.json(
-      { code: 'MISSING_REQUIRED_FIELDS', message: 'Title and content are required' } satisfies ErrorResponse,
-      { status: 400 }
-    );
-  }
-
-  const { title, content } = validationResult.data;
+  const contentType = request.headers.get('content-type') ?? '';
 
   try {
     const pool = getPool();
-
     const checkResult = await pool.query('SELECT id FROM press_releases WHERE id = $1', [id]);
-
     if (checkResult.rows.length === 0) {
       return NextResponse.json(
         { code: 'NOT_FOUND', message: 'Press release not found' } satisfies ErrorResponse,
         { status: 404 }
       );
     }
+
+    if (contentType.includes('multipart/form-data')) {
+      const form = await request.formData();
+      const file = form.get('file');
+
+      if (!file || !(file instanceof File)) {
+        return NextResponse.json({ error: 'file is required' }, { status: 400 });
+      }
+      if (!file.type.startsWith('image/')) {
+        return NextResponse.json({ error: 'invalid file type' }, { status: 400 });
+      }
+
+      const MAX = 10 * 1024 * 1024;
+      if (file.size > MAX) {
+        return NextResponse.json({ error: 'file too large' }, { status: 413 });
+      }
+
+      const bytes = Buffer.from(await file.arrayBuffer());
+
+      const ins = await pool.query<{ id: number }>(
+        `INSERT INTO images (filename, content_type, bytes)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
+        [file.name, file.type, bytes]
+      );
+
+      const imageId = ins.rows[0].id;
+      return NextResponse.json({ id: imageId, url: `/api/images/${imageId}` });
+    }
+
+    let bodyText: string;
+    try {
+      bodyText = await request.text();
+    } catch {
+      return NextResponse.json(
+        { code: 'INVALID_JSON', message: 'Invalid JSON' } satisfies ErrorResponse,
+        { status: 400 }
+      );
+    }
+
+    if (bodyText.trim() === '') {
+      return NextResponse.json(
+        { code: 'INVALID_JSON', message: 'Invalid JSON' } satisfies ErrorResponse,
+        { status: 400 }
+      );
+    }
+
+    let data: unknown;
+    try {
+      data = JSON.parse(bodyText);
+    } catch {
+      return NextResponse.json(
+        { code: 'INVALID_JSON', message: 'Invalid JSON' } satisfies ErrorResponse,
+        { status: 400 }
+      );
+    }
+
+    const validationResult = PressReleaseInputSchema.safeParse(data);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { code: 'MISSING_REQUIRED_FIELDS', message: 'Title and content are required' } satisfies ErrorResponse,
+        { status: 400 }
+      );
+    }
+
+    const { title, content } = validationResult.data;
 
     await pool.query(
       'UPDATE press_releases SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
