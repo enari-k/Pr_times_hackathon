@@ -1,5 +1,7 @@
 'use client';
 
+import CharacterCounter from '@/components/editor/counter/CharacterCounter';
+import TitleCounter from '@/components/editor/counter/TitleCounter';
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -15,6 +17,7 @@ import styles from './page.module.css';
 import Image from '@tiptap/extension-image';
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
+import { validateContent, validateTitle } from '@/utils/validation';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -168,7 +171,7 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
     };
   }, [editor]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editor) return;
 
     const text = editor.getText();
@@ -178,11 +181,25 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
 
     if (titleError) {
       alert(titleError);
-      return;
     }
 
     if (contentError) {
       alert(contentError);
+    }
+
+    const validateResponse = await fetch('/api/validate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title,
+        content: editor.getText(),
+      }),
+    });
+
+    if (!validateResponse.ok) {
+      const error = await validateResponse.json();
       return;
     }
 
