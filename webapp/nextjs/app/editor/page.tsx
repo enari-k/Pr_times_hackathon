@@ -9,6 +9,8 @@ import Paragraph from '@tiptap/extension-paragraph';
 import Text from '@tiptap/extension-text';
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
+import Image from '@tiptap/extension-image';
+import ImageUrlInsert from './media/ImageUrlInsert';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -82,7 +84,7 @@ interface EditorProps {
 function Editor({ initialTitle, initialContent }: EditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const editor = useEditor({
-    extensions: [Document, Heading, Paragraph, Text],
+    extensions: [Document, Heading, Paragraph, Text, Image],
     content: initialContent,
     immediatelyRender: false
   });
@@ -117,6 +119,9 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
               placeholder="タイトルを入力してください"
               className={styles.titleInput}
             />
+          </div>
+          <div style={{ margin: '12px 0' }}>
+            <ImageUrlInsert editor={editor} />
           </div>
           <EditorContent editor={editor} />
         </div>
