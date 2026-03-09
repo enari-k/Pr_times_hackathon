@@ -1,0 +1,23 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main  # mainブランチにコードがプッシュされたら起動します
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute SSH commands on EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/Pr_times_hackathon/webapp/nextjs
+            git pull origin main
+            npm install
+            npm run build
+            pm2 restart nextjs-app || pm2 start npm --name "nextjs-app" -- start
