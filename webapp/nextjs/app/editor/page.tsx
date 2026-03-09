@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEditor, EditorContent, type Editor } from '@tiptap/react'; // 👈 type Editor を追加
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import Document from '@tiptap/extension-document';
 import Heading from '@tiptap/extension-heading';
 import Paragraph from '@tiptap/extension-paragraph';
@@ -10,18 +10,24 @@ import Text from '@tiptap/extension-text';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
-import Image from '@tiptap/extension-image'; // 👈 Image 拡張をインポート
+// mainブランチの拡張機能
+import BulletList from '@tiptap/extension-bullet-list';
+import OrderedList from '@tiptap/extension-ordered-list';
+import ListItem from '@tiptap/extension-list-item';
+import Link from '@tiptap/extension-link';
+// 画像用の拡張機能
+import Image from '@tiptap/extension-image';
 
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
 
+// カウンターコンポーネント (mainブランチ)
+import CharacterCounter from '@/components/editor/counter/CharacterCounter';
+import TitleCounter from '@/components/editor/counter/TitleCounter';
+
+// 画像アップロードコンポーネント (s3-uploaderブランチ)
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
-
-// ⚠️ 以下は実際のパスに合わせてインポートするか、不要ならコメントアウトのままにしてください
-// import { validateTitle, validateContent } from '@/utils/validation';
-// import { TitleCounter } from '@/components/TitleCounter';
-// import { CharacterCounter } from '@/components/CharacterCounter';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -60,7 +66,6 @@ function useSavePressReleaseMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
-      // 保存完了アラート
       alert('保存しました！');
     },
     onError: (error: Error) => {
@@ -70,7 +75,7 @@ function useSavePressReleaseMutation() {
 }
 
 // --- ツールバー ---
-const Toolbar = ({ editor }: { editor: Editor | null }) => { // 👈 any から Editor | null に変更
+const Toolbar = ({ editor }: { editor: Editor | null }) => {
   if (!editor) return null;
 
   const getButtonStyle = (name: string) => {
@@ -82,28 +87,36 @@ const Toolbar = ({ editor }: { editor: Editor | null }) => { // 👈 any から 
     }`;
   };
 
+  const setLink = () => {
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('リンク先のURLを入力してください:', previousUrl);
+
+    if (url === null) return;
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  };
+
   return (
-    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black">
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        className={getButtonStyle('bold')}
+    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap">
+      <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={getButtonStyle('bold')}>B</button>
+      <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={getButtonStyle('italic')}>I</button>
+      <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()} className={getButtonStyle('underline')}>U</button>
+      
+      <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={getButtonStyle('bulletList')}>• 箇条書き</button>
+      <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={getButtonStyle('orderedList')}>1. 番号</button>
+
+      <button type="button" onClick={setLink} className={getButtonStyle('link')}>🔗 リンク</button>
+      <button 
+        type="button" 
+        onClick={() => editor.chain().focus().unsetLink().run()} 
+        disabled={!editor.isActive('link')}
+        className="px-3 py-2 border rounded font-bold bg-white text-gray-700 disabled:opacity-50"
       >
-        B
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        className={getButtonStyle('italic')}
-      >
-        I
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-        className={getButtonStyle('underline')}
-      >
-        U
+        解除
       </button>
     </div>
   );
@@ -113,28 +126,14 @@ const Toolbar = ({ editor }: { editor: Editor | null }) => { // 👈 any から 
 export default function EditorPage() {
   const { data, isPending, isError } = usePressReleaseQuery();
 
-  if (isPending) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.loading}>読み込み中...</div>
-      </div>
-    );
-  }
+  if (isPending) return <div className={styles.container}><div className={styles.loading}>読み込み中...</div></div>;
+  if (isError || !data) return <div className={styles.container}><div className={styles.error}>データの読み込みに失敗しました</div></div>;
 
-  if (isError || !data) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.error}>データの読み込みに失敗しました</div>
-      </div>
-    );
-  }
-
-  // データの content を安全にパース
-  let initialContent = '';
-  try {
-    initialContent = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-  } catch (e) {
-    initialContent = data.content;
+  let initialContent: any = '';
+  if (data.content != null) {
+    if (typeof data.content === 'string') {
+      try { initialContent = JSON.parse(data.content); } catch { initialContent = data.content; }
+    } else { initialContent = data.content; }
   }
 
   return <Editor initialTitle={data.title} initialContent={initialContent} />;
@@ -148,10 +147,12 @@ interface EditorProps {
 function Editor({ initialTitle, initialContent }: EditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [mounted, setMounted] = useState(false);
+  const titleRef = useRef(title);
+  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSavedRef = useRef<string>('');
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { titleRef.current = title; }, [title]);
+  useEffect(() => setMounted(true), []);
 
   const editor = useEditor({
     extensions: [
@@ -162,7 +163,19 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
       Bold,
       Italic,
       Underline,
-      Image, // 👈 忘れずに Image 拡張を追加
+      BulletList,
+      OrderedList,
+      ListItem,
+      Image,
+      Link.configure({
+        openOnClick: true,
+        autolink: true,
+        HTMLAttributes: {
+          class: 'editor-link',
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
+      }),
     ],
     content: initialContent,
     immediatelyRender: false,
@@ -170,19 +183,19 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
 
   const { isPending: isSaving, mutate } = useSavePressReleaseMutation();
 
-  // 1. 最新のタイトルを保持するためのRef（自動保存用）
-  const titleRef = useRef(title);
-  useEffect(() => {
-    titleRef.current = title;
-  }, [title]);
-
-  // 2. 5秒ごとの自動保存ロジック
+  // 5秒ごとの自動保存ロジック（差分チェック付き）
   useEffect(() => {
     if (!editor) return;
+    
+    lastSavedRef.current = JSON.stringify(editor.getJSON());
+    if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
 
-    const timer = setInterval(async () => {
+    autosaveTimerRef.current = setInterval(async () => {
       const currentTitle = titleRef.current;
       const currentContent = JSON.stringify(editor.getJSON());
+      
+      // 内容に変更がなければAPIを叩かない
+      if (currentContent === lastSavedRef.current) return;
 
       try {
         const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
@@ -195,42 +208,24 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
             content: currentContent,
           }),
         });
-
-        if (response.ok) {
+        
+        if (response.ok) { 
+          lastSavedRef.current = currentContent; 
           console.log('📝 5秒ごとの自動保存が完了しました');
         }
-      } catch (error) {
-        console.error('⚠️ 自動保存の通信エラー:', error);
+      } catch (e) { 
+        console.error('[autosave] error', e); 
       }
     }, 5000);
 
-    return () => clearInterval(timer);
+    return () => { if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current); };
   }, [editor]);
 
-  // 手動保存のハンドラー
-  const handleSave = () => {
-    if (!editor) return;
-
-    const text = editor.getText();
-
-    // ⚠️ バリデーション関数が未定義の場合はコメントアウト
-    // const titleError = validateTitle(title);
-    // const contentError = validateContent(text);
-
-    // if (titleError) {
-    //   alert(titleError);
-    //   return;
-    // }
-
-    // if (contentError) {
-    //   alert(contentError);
-    //   return;
-    // }
-
-    mutate({
-      title,
-      content: JSON.stringify(editor.getJSON()),
-    });
+  const handleSave = async () => {
+    if (!editor || !title.trim()) return alert("タイトルを入力してください");
+    const content = JSON.stringify(editor.getJSON());
+    mutate({ title, content });
+    lastSavedRef.current = content;
   };
 
   if (!mounted) return null;
@@ -239,27 +234,19 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>プレスリリースエディター</h1>
-        <button onClick={handleSave} className={styles.saveButton} disabled={isSaving}>
-          {isSaving ? '保存中...' : '保存'}
-        </button>
+        <button onClick={handleSave} className={styles.saveButton} disabled={isSaving}>{isSaving ? '保存中...' : '保存'}</button>
       </header>
 
       <main className={styles.main}>
         <div className={styles.editorWrapper}>
           <div className={styles.titleInputWrapper}>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="タイトルを入力してください"
-              className={styles.titleInput}
-            />
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトルを入力" className={styles.titleInput} />
           </div>
           
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
             
-            {/* 画像関連のボタンをツールバーの下に配置 */}
+            {/* 画像関連のボタン */}
             <div style={{ margin: '12px', display: 'flex', gap: '8px' }}>
               <ImageUploadButton editor={editor} />
               <ImageUrlInsert editor={editor} />
@@ -271,9 +258,8 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
           </div>
         </div>
 
-        {/* ⚠️ コンポーネントが未定義の場合はコメントアウト */}
-        {/* <TitleCounter title={title} /> */}
-        {/* <CharacterCounter editor={editor} /> */}
+        <TitleCounter title={title} />
+        <CharacterCounter editor={editor} />
       </main>
 
       <style jsx global>{`
@@ -282,12 +268,25 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
           min-height: 400px;
           outline: none;
           color: black;
+          background-color: white;
         }
         .tiptap-container .tiptap img {
           max-width: 100%;
           height: auto;
           border-radius: 4px;
         }
+        /* リンクの見た目とホバー時のポインタ */
+        .tiptap-container .tiptap a, .editor-link {
+          color: #2563eb !important;
+          text-decoration: underline !important;
+          cursor: pointer !important;
+        }
+        .tiptap-container .tiptap a:hover {
+          color: #1d4ed8 !important;
+        }
+        .tiptap-container .tiptap ul { list-style-type: disc !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
+        .tiptap-container .tiptap ol { list-style-type: decimal !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
+        .tiptap-container .tiptap li p { margin: 0 !important; }
         .tiptap-container .tiptap u { text-decoration: underline !important; }
         .tiptap-container .tiptap strong { font-weight: bold !important; }
         .tiptap-container .tiptap em { font-style: italic !important; }
