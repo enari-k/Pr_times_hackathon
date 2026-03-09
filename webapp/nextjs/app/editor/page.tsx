@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEditor, EditorContent, type Editor } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react';
+
 import Document from '@tiptap/extension-document';
 import Heading from '@tiptap/extension-heading';
 import Paragraph from '@tiptap/extension-paragraph';
@@ -10,24 +11,18 @@ import Text from '@tiptap/extension-text';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
-// mainブランチの拡張機能
-import BulletList from '@tiptap/extension-bullet-list';
-import OrderedList from '@tiptap/extension-ordered-list';
-import ListItem from '@tiptap/extension-list-item';
-import Link from '@tiptap/extension-link';
-// 画像用の拡張機能
 import Image from '@tiptap/extension-image';
 
-import type { PressRelease } from '@/lib/types';
-import styles from './page.module.css';
-
-// カウンターコンポーネント (mainブランチ)
 import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import TitleCounter from '@/components/editor/counter/TitleCounter';
 
-// 画像アップロードコンポーネント (s3-uploaderブランチ)
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
+
+import { validateContent, validateTitle } from '@/utils/validation';
+
+import type { PressRelease } from '@/lib/types';
+import styles from './page.module.css';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -38,15 +33,13 @@ function usePressReleaseQuery() {
     queryKey,
     queryFn: async (): Promise<PressRelease> => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`);
-      if (!response.ok) {
-        throw new Error(`HTTPエラー: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
       return response.json();
     },
   });
 }
 
-// --- 保存処理 ---
+// --- 保存処理（手動保存） ---
 function useSavePressReleaseMutation() {
   const queryClient = useQueryClient();
 
@@ -54,14 +47,10 @@ function useSavePressReleaseMutation() {
     mutationFn: async (data: { title: string; content: string }) => {
       const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!response.ok) {
-        throw new Error('保存に失敗しました');
-      }
+      if (!response.ok) throw new Error('保存に失敗しました');
       return response.json();
     },
     onSuccess: () => {
@@ -75,48 +64,40 @@ function useSavePressReleaseMutation() {
 }
 
 // --- ツールバー ---
-const Toolbar = ({ editor }: { editor: Editor | null }) => {
+const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
   if (!editor) return null;
 
   const getButtonStyle = (name: string) => {
     const isActive = editor.isActive(name);
     return `px-4 py-2 border rounded font-bold transition-colors ${
-      isActive 
-        ? 'bg-blue-600 text-white border-blue-700' 
+      isActive
+        ? 'bg-blue-600 text-white border-blue-700'
         : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
     }`;
   };
 
-  const setLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('リンク先のURLを入力してください:', previousUrl);
-
-    if (url === null) return;
-    if (url === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
-      return;
-    }
-
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
-  };
-
   return (
-    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap">
-      <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={getButtonStyle('bold')}>B</button>
-      <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={getButtonStyle('italic')}>I</button>
-      <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()} className={getButtonStyle('underline')}>U</button>
-      
-      <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={getButtonStyle('bulletList')}>• 箇条書き</button>
-      <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={getButtonStyle('orderedList')}>1. 番号</button>
-
-      <button type="button" onClick={setLink} className={getButtonStyle('link')}>🔗 リンク</button>
-      <button 
-        type="button" 
-        onClick={() => editor.chain().focus().unsetLink().run()} 
-        disabled={!editor.isActive('link')}
-        className="px-3 py-2 border rounded font-bold bg-white text-gray-700 disabled:opacity-50"
+    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black">
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={getButtonStyle('bold')}
       >
-        解除
+        B
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={getButtonStyle('italic')}
+      >
+        I
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        className={getButtonStyle('underline')}
+      >
+        U
       </button>
     </div>
   );
@@ -126,105 +107,142 @@ const Toolbar = ({ editor }: { editor: Editor | null }) => {
 export default function EditorPage() {
   const { data, isPending, isError } = usePressReleaseQuery();
 
-  if (isPending) return <div className={styles.container}><div className={styles.loading}>読み込み中...</div></div>;
-  if (isError || !data) return <div className={styles.container}><div className={styles.error}>データの読み込みに失敗しました</div></div>;
+  if (isPending) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loading}>読み込み中...</div>
+      </div>
+    );
+  }
 
+  if (isError || !data) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.error}>データの読み込みに失敗しました</div>
+      </div>
+    );
+  }
+
+  // tiptapのcontentは「JSONオブジェクト」か「HTML文字列」
   let initialContent: any = '';
   if (data.content != null) {
     if (typeof data.content === 'string') {
-      try { initialContent = JSON.parse(data.content); } catch { initialContent = data.content; }
-    } else { initialContent = data.content; }
+      try {
+        initialContent = JSON.parse(data.content);
+      } catch {
+        initialContent = data.content;
+      }
+    } else {
+      initialContent = data.content;
+    }
   }
 
-  return <Editor initialTitle={data.title} initialContent={initialContent} />;
+  return <PressReleaseEditor initialTitle={data.title ?? ''} initialContent={initialContent} />;
 }
 
-interface EditorProps {
-  initialTitle: string;
-  initialContent: any;
-}
-
-function Editor({ initialTitle, initialContent }: EditorProps) {
+function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: string; initialContent: any }) {
   const [title, setTitle] = useState(initialTitle);
   const [mounted, setMounted] = useState(false);
-  const titleRef = useRef(title);
-  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastSavedRef = useRef<string>('');
 
-  useEffect(() => { titleRef.current = title; }, [title]);
+  // interval内で最新title参照
+  const titleRef = useRef(title);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
   useEffect(() => setMounted(true), []);
 
   const editor = useEditor({
-    extensions: [
-      Document,
-      Heading,
-      Paragraph,
-      Text,
-      Bold,
-      Italic,
-      Underline,
-      BulletList,
-      OrderedList,
-      ListItem,
-      Image,
-      Link.configure({
-        openOnClick: true,
-        autolink: true,
-        HTMLAttributes: {
-          class: 'editor-link',
-          target: '_blank',
-          rel: 'noopener noreferrer',
-        },
-      }),
-    ],
+    extensions: [Document, Heading, Paragraph, Text, Bold, Italic, Underline, Image],
     content: initialContent,
     immediatelyRender: false,
   });
 
   const { isPending: isSaving, mutate } = useSavePressReleaseMutation();
 
-  // 5秒ごとの自動保存ロジック（差分チェック付き）
+  // --- 自動保存（重複防止 + 変更時のみ送信）---
+  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSavedRef = useRef<string>(''); // 前回保存したJSON
+
   useEffect(() => {
     if (!editor) return;
-    
+
+    // 初期状態を「保存済み」として扱う
     lastSavedRef.current = JSON.stringify(editor.getJSON());
+
+    // 重複防止
     if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
 
     autosaveTimerRef.current = setInterval(async () => {
       const currentTitle = titleRef.current;
       const currentContent = JSON.stringify(editor.getJSON());
-      
-      // 内容に変更がなければAPIを叩かない
+
       if (currentContent === lastSavedRef.current) return;
 
       try {
-        const response = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
+        const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            title: currentTitle,
-            content: currentContent,
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: currentTitle, content: currentContent }),
         });
-        
-        if (response.ok) { 
-          lastSavedRef.current = currentContent; 
-          console.log('📝 5秒ごとの自動保存が完了しました');
+
+        if (res.ok) {
+          lastSavedRef.current = currentContent;
+          console.log('[autosave] saved', new Date().toISOString());
+        } else {
+          console.error('[autosave] failed', res.status);
         }
-      } catch (e) { 
-        console.error('[autosave] error', e); 
+      } catch (e) {
+        console.error('[autosave] network error', e);
       }
     }, 5000);
 
-    return () => { if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current); };
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearInterval(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
   }, [editor]);
 
+  // --- 手動保存 ---
   const handleSave = async () => {
-    if (!editor || !title.trim()) return alert("タイトルを入力してください");
+    if (!editor) return;
+
+    const titleError = validateTitle(title);
+    const contentError = validateContent(editor.getText());
+
+    if (titleError) {
+      alert(titleError);
+      return;
+    }
+    if (contentError) {
+      alert(contentError);
+      return;
+    }
+
+    // サーバ側バリデーション（あるなら）
+    const validateResponse = await fetch('/api/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        content: editor.getText(),
+      }),
+    });
+
+    if (!validateResponse.ok) {
+      // ここはAPI仕様に合わせてメッセージを出す
+      const err = await validateResponse.json().catch(() => null);
+      console.error('validate failed', err);
+      alert('バリデーションに失敗しました');
+      return;
+    }
+
     const content = JSON.stringify(editor.getJSON());
     mutate({ title, content });
+
+    // 自動保存が直後に同じ内容を投げないように
     lastSavedRef.current = content;
   };
 
@@ -234,32 +252,40 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>プレスリリースエディター</h1>
-        <button onClick={handleSave} className={styles.saveButton} disabled={isSaving}>{isSaving ? '保存中...' : '保存'}</button>
+        <button onClick={handleSave} className={styles.saveButton} disabled={isSaving}>
+          {isSaving ? '保存中...' : '保存'}
+        </button>
       </header>
 
       <main className={styles.main}>
         <div className={styles.editorWrapper}>
           <div className={styles.titleInputWrapper}>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトルを入力" className={styles.titleInput} />
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="タイトルを入力してください"
+              className={styles.titleInput}
+            />
           </div>
-          
+
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
-            
-            {/* 画像関連のボタン */}
-            <div style={{ margin: '12px', display: 'flex', gap: '8px' }}>
+
+            <div style={{ margin: '12px 0', padding: '0 12px', display: 'flex', gap: 8 }}>
               <ImageUploadButton editor={editor} />
               <ImageUrlInsert editor={editor} />
             </div>
 
             <div className="tiptap-container">
-              <EditorContent editor={editor} />
+              <EditorContent editor={editor} className={styles.editorContent} />
             </div>
           </div>
-        </div>
 
-        <TitleCounter title={title} />
-        <CharacterCounter editor={editor} />
+          {/* カウンター類（存在する前提） */}
+          <TitleCounter title={title} />
+          <CharacterCounter editor={editor} />
+        </div>
       </main>
 
       <style jsx global>{`
@@ -268,29 +294,19 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
           min-height: 400px;
           outline: none;
           color: black;
-          background-color: white;
         }
-        .tiptap-container .tiptap img {
-          max-width: 100%;
-          height: auto;
-          border-radius: 4px;
-        }
-        /* リンクの見た目とホバー時のポインタ */
-        .tiptap-container .tiptap a, .editor-link {
-          color: #2563eb !important;
+        .tiptap-container .tiptap u {
           text-decoration: underline !important;
-          cursor: pointer !important;
         }
-        .tiptap-container .tiptap a:hover {
-          color: #1d4ed8 !important;
+        .tiptap-container .tiptap strong {
+          font-weight: bold !important;
         }
-        .tiptap-container .tiptap ul { list-style-type: disc !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
-        .tiptap-container .tiptap ol { list-style-type: decimal !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
-        .tiptap-container .tiptap li p { margin: 0 !important; }
-        .tiptap-container .tiptap u { text-decoration: underline !important; }
-        .tiptap-container .tiptap strong { font-weight: bold !important; }
-        .tiptap-container .tiptap em { font-style: italic !important; }
-        .tiptap-container .tiptap p { margin-bottom: 1rem; }
+        .tiptap-container .tiptap em {
+          font-style: italic !important;
+        }
+        .tiptap-container .tiptap p {
+          margin-bottom: 1rem;
+        }
       `}</style>
     </div>
   );
