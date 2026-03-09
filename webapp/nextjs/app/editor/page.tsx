@@ -10,10 +10,13 @@ import Text from '@tiptap/extension-text';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
+// リスト拡張機能
+import BulletList from '@tiptap/extension-bullet-list';
+import OrderedList from '@tiptap/extension-ordered-list';
+import ListItem from '@tiptap/extension-list-item';
+
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
-import Image from '@tiptap/extension-image';
-import ImageUrlInsert from './media/ImageUrlInsert';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -60,13 +63,13 @@ function useSavePressReleaseMutation() {
   });
 }
 
-// --- ツールバー（追加分） ---
+// --- ツールバー ---
 const Toolbar = ({ editor }: { editor: any }) => {
   if (!editor) return null;
 
   const getButtonStyle = (name: string) => {
     const isActive = editor.isActive(name);
-    return `px-4 py-2 border rounded font-bold transition-colors ${
+    return `px-3 py-2 border rounded font-bold transition-colors ${
       isActive 
         ? 'bg-blue-600 text-white border-blue-700' 
         : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
@@ -74,7 +77,7 @@ const Toolbar = ({ editor }: { editor: any }) => {
   };
 
   return (
-    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black">
+    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap">
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}
@@ -95,6 +98,22 @@ const Toolbar = ({ editor }: { editor: any }) => {
         className={getButtonStyle('underline')}
       >
         U
+      </button>
+      
+      {/* リストボタン */}
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={getButtonStyle('bulletList')}
+      >
+        • 箇条書き
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        className={getButtonStyle('orderedList')}
+      >
+        1. 番号付き
       </button>
     </div>
   );
@@ -120,7 +139,6 @@ export default function EditorPage() {
     );
   }
 
-  // データの content を安全にパース
   let initialContent = '';
   try {
     initialContent = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
@@ -150,9 +168,13 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
       Heading,
       Paragraph,
       Text,
-      Bold,      // 追加
-      Italic,    // 追加
-      Underline, // 追加
+      Bold,
+      Italic,
+      Underline,
+      // リスト拡張機能の登録
+      BulletList,
+      OrderedList,
+      ListItem,
     ],
     content: initialContent,
     immediatelyRender: false,
@@ -160,7 +182,6 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
 
   const { isPending: isSaving, mutate } = useSavePressReleaseMutation();
 
-  // エディタ破棄用のクリーンアップ
   useEffect(() => {
     return () => {
       editor?.destroy();
@@ -170,18 +191,8 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
   const handleSave = () => {
     if (!editor) return;
 
-    const text = editor.getText();
-
-    const titleError = validateTitle(title);
-    const contentError = validateContent(text);
-
-    if (titleError) {
-      alert(titleError);
-      return;
-    }
-
-    if (contentError) {
-      alert(contentError);
+    if (!title.trim()) {
+      alert("タイトルを入力してください");
       return;
     }
 
@@ -214,7 +225,6 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
             />
           </div>
           
-          {/* ツールバーとエディタ本体をまとめた枠 */}
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
             <div className="tiptap-container">
@@ -222,17 +232,38 @@ function Editor({ initialTitle, initialContent }: EditorProps) {
             </div>
           </div>
         </div>
-        <TitleCounter title={title} />
-        <CharacterCounter editor={editor} />
       </main>
 
       <style jsx global>{`
+        /* エディタ入力エリアの基本設定 */
         .tiptap-container .tiptap {
-          padding: 1rem;
+          padding: 1.5rem;
           min-height: 400px;
           outline: none;
           color: black;
+          background-color: white;
         }
+
+        /* 箇条書き (ul) のスタイル */
+        .tiptap-container .tiptap ul {
+          list-style-type: disc !important;
+          padding-left: 2rem !important;
+          margin: 1rem 0 !important;
+        }
+
+        /* 番号付きリスト (ol) のスタイル */
+        .tiptap-container .tiptap ol {
+          list-style-type: decimal !important;
+          padding-left: 2rem !important;
+          margin: 1rem 0 !important;
+        }
+
+        /* リスト項目 (li) 内の段落余白を調整 */
+        .tiptap-container .tiptap li p {
+          margin: 0 !important;
+        }
+
+        /* その他の基本装飾 */
         .tiptap-container .tiptap u { text-decoration: underline !important; }
         .tiptap-container .tiptap strong { font-weight: bold !important; }
         .tiptap-container .tiptap em { font-style: italic !important; }
