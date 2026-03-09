@@ -298,10 +298,13 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
 
-            <div style={{ margin: '12px 0', padding: '0 12px', display: 'flex', gap: 8 }}>
-              <ImageUploadButton editor={editor} />
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <ImageUploadButton editor={editor} />
+
+            <div>
               <ImageUrlInsert editor={editor} />
             </div>
+          </div>
 
             <div className="tiptap-container">
               <EditorContent editor={editor} className={styles.editorContent} />
