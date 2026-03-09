@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 
 type Props = { editor: Editor | null };
@@ -10,12 +10,16 @@ export default function ImageUploadButton({ editor }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const pick = () => inputRef.current?.click();
+  const pick = () => {
+    if (isUploading) return;
+    inputRef.current?.click();
+  };
 
   const upload = async (file: File) => {
     if (!editor) return;
+    if (isUploading) return;
 
-    if (!file.type.startsWith('image/')) {
+    if (!file.type?.startsWith('image/')) {
       alert('画像ファイルを選択してください');
       return;
     }
@@ -23,22 +27,25 @@ export default function ImageUploadButton({ editor }: Props) {
     setIsUploading(true);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', file); // API側: formData.get('file')
 
-      // ✅ 画像は /api/images にアップロード
       const res = await fetch('/api/images', {
         method: 'POST',
         body: fd,
       });
 
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `アップロードに失敗しました (${res.status})`);
+      }
 
-      // サーバが { url, id } を返しても、最低urlがあればOK
-      const data: { url: string; id?: number } = await res.json();
+      const data = (await res.json()) as { url?: string; id?: number };
+      if (!data.url) throw new Error('アップロードAPIの戻り値に url がありません');
 
       editor.chain().focus().setImage({ src: data.url }).run();
     } catch (err: any) {
       alert(err?.message ?? 'アップロードに失敗しました');
+      console.error(err);
     } finally {
       setIsUploading(false);
     }
@@ -46,7 +53,10 @@ export default function ImageUploadButton({ editor }: Props) {
 
   const onChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
+
+    // 同じファイルを連続で選択しても change が出るようにクリア
     e.target.value = '';
+
     if (!file) return;
     await upload(file);
   };
@@ -97,6 +107,7 @@ export default function ImageUploadButton({ editor }: Props) {
           cursor: !editor || isUploading ? 'not-allowed' : 'pointer',
           outline: isDragOver ? '2px dashed #3b82f6' : 'none',
           outlineOffset: 2,
+          opacity: !editor || isUploading ? 0.6 : 1,
         }}
         title="クリックで選択 / ここに画像をドラッグ&ドロップ"
       >
