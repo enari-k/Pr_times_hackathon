@@ -108,7 +108,7 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
         disabled={!editor.isActive('link')}
         className="px-3 py-2 border rounded font-bold bg-white text-gray-700 disabled:opacity-50"
       >
-        解除
+        リンクを解除
       </button>
     </div>
   );
