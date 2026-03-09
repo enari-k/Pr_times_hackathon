@@ -3,6 +3,8 @@
 import { useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 
+import { validateImage } from '@/utils/validation';
+
 const PRESS_RELEASE_ID = 1;
 
 type Props = { editor: Editor | null };
@@ -18,6 +20,12 @@ export default function ImageUploadButton({ editor }: Props) {
 
     if (!file.type.startsWith('image/')) {
       alert('画像ファイルを選択してください');
+      return;
+    }
+
+    const error = validateImage(file);
+    if (error) {
+      alert(error);
       return;
     }
 
