@@ -1,7 +1,11 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
+
+import { validateImage } from '@/utils/validation';
+
+const PRESS_RELEASE_ID = 1;
 
 type Props = { editor: Editor | null };
 
@@ -10,42 +14,37 @@ export default function ImageUploadButton({ editor }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const pick = () => {
-    if (isUploading) return;
-    inputRef.current?.click();
-  };
-
+  const pick = () => inputRef.current?.click();
   const upload = async (file: File) => {
     if (!editor) return;
-    if (isUploading) return;
 
-    if (!file.type?.startsWith('image/')) {
+    if (!file.type.startsWith('image/')) {
       alert('画像ファイルを選択してください');
+      return;
+    }
+
+    const error = validateImage(file);
+    if (error) {
+      alert(error);
       return;
     }
 
     setIsUploading(true);
     try {
       const fd = new FormData();
-      fd.append('file', file); // API側: formData.get('file')
+      fd.append('file', file);
 
-      const res = await fetch('/api/images', {
+      const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
         method: 'POST',
         body: fd,
       });
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || `アップロードに失敗しました (${res.status})`);
-      }
+      if (!res.ok) throw new Error(await res.text());
 
-      const data = (await res.json()) as { url?: string; id?: number };
-      if (!data.url) throw new Error('アップロードAPIの戻り値に url がありません');
-
+      const data: { url: string } = await res.json();
       editor.chain().focus().setImage({ src: data.url }).run();
     } catch (err: any) {
       alert(err?.message ?? 'アップロードに失敗しました');
-      console.error(err);
     } finally {
       setIsUploading(false);
     }
@@ -53,10 +52,7 @@ export default function ImageUploadButton({ editor }: Props) {
 
   const onChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
-
-    // 同じファイルを連続で選択しても change が出るようにクリア
     e.target.value = '';
-
     if (!file) return;
     await upload(file);
   };
@@ -107,7 +103,6 @@ export default function ImageUploadButton({ editor }: Props) {
           cursor: !editor || isUploading ? 'not-allowed' : 'pointer',
           outline: isDragOver ? '2px dashed #3b82f6' : 'none',
           outlineOffset: 2,
-          opacity: !editor || isUploading ? 0.6 : 1,
         }}
         title="クリックで選択 / ここに画像をドラッグ&ドロップ"
       >
