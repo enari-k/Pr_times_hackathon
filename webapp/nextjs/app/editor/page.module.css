@@ -105,3 +105,13 @@
   display: block;
   margin: 12px 0;
 }
+
+.content {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.editorWrapper {
+  flex: 1;
+}

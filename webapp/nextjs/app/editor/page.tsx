@@ -16,6 +16,8 @@ import Image from '@tiptap/extension-image';
 import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import TitleCounter from '@/components/editor/counter/TitleCounter';
 
+import CopyrightCheckPanel from '@/components/copyright/CopyrightCheckPanel';
+
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
 
@@ -258,35 +260,44 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
       </header>
 
       <main className={styles.main}>
-        <div className={styles.editorWrapper}>
-          <div className={styles.titleInputWrapper}>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="タイトルを入力してください"
-              className={styles.titleInput}
-            />
-          </div>
+        <div className={styles.content}>
 
-          <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-            <Toolbar editor={editor} />
-
-            <div style={{ margin: '12px 0', padding: '0 12px', display: 'flex', gap: 8 }}>
-              <ImageUploadButton editor={editor} />
-              <ImageUrlInsert editor={editor} />
+          <div className={styles.editorWrapper}>
+            <div className={styles.titleInputWrapper}>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="タイトルを入力してください"
+                className={styles.titleInput}
+              />
             </div>
 
-            <div className="tiptap-container">
-              <EditorContent editor={editor} className={styles.editorContent} />
+            <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+              <Toolbar editor={editor} />
+
+              <div style={{ margin: '12px 0', padding: '0 12px', display: 'flex', gap: 8 }}>
+                <ImageUploadButton editor={editor} />
+                <ImageUrlInsert editor={editor} />
+              </div>
+
+              <div className="tiptap-container">
+                <EditorContent editor={editor} className={styles.editorContent} />
+              </div>
             </div>
+
+            {/* カウンター類（存在する前提） */}
+            <TitleCounter title={title} />
+            <CharacterCounter editor={editor} />
           </div>
 
-          {/* カウンター類（存在する前提） */}
-          <TitleCounter title={title} />
-          <CharacterCounter editor={editor} />
+          <CopyrightCheckPanel
+            content={editor?.getText() ?? ""}
+          />
+
         </div>
       </main>
+
 
       <style jsx global>{`
         .tiptap-container .tiptap {
