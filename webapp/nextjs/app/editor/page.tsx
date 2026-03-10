@@ -342,13 +342,24 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
           <button 
             onClick={handleSave} 
             className={styles.saveButton} 
-            disabled={isSaving || isCheckingAI || !isApproved}
+            disabled={isSaving || isCheckingAI}
             style={{
-              opacity: isSaving || isCheckingAI || !isApproved ? 0.5 : 1,
-              cursor: isSaving || isCheckingAI || !isApproved ? 'not-allowed' : 'pointer'
+              opacity: isSaving || isCheckingAI ? 0.5 : 1,
+              cursor: isSaving || isCheckingAI ? 'not-allowed' : 'pointer'
             }}
           >
             {isCheckingAI ? 'AIチェック中...' : isSaving ? '保存中...' : '保存'}
+          </button>
+          <button 
+            onClick={handleSave} 
+            className={styles.saveButton} 
+            disabled={isSaving || isCheckingAI || !isApproved}
+            style={{
+            opacity: isSaving || isCheckingAI || !isApproved ? 0.5 : 1,
+              cursor: isSaving || isCheckingAI || !isApproved ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isCheckingAI ? 'AIチェック中...' : isSaving ? '公開中...' : '公開'}
           </button>
         </div>
       </header>

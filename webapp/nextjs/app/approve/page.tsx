@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import ReadPreviewPage from '../readpreview/page';
 
 export default function ApprovePage() {
   const queryClient = useQueryClient();
@@ -50,7 +51,7 @@ export default function ApprovePage() {
   return (
     <div style={{ maxWidth: '600px', margin: '40px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontFamily: 'sans-serif' }}>
       <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px', textAlign: 'center' }}>プレスリリース承認画面</h1>
-      
+      <ReadPreviewPage/>
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
         <p style={{ fontSize: '16px', marginBottom: '10px' }}>現在のステータス</p>
         <span style={{
@@ -61,7 +62,6 @@ export default function ApprovePage() {
           {isApproved ? '✅ 承認済み' : isRejected ? '❌ 差し戻し' : '⏳ 承認待ち'}
         </span>
       </div>
-
       {/* 🌟 コメント入力欄 */}
       <div style={{ marginBottom: '24px' }}>
         <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px' }}>💬 フィードバック・コメント</label>
