@@ -26,7 +26,9 @@ jobs:
             command -v pm2 >/dev/null 2>&1 || npm i -g pm2
 
             cd /home/ubuntu/Pr_times_hackathon/webapp/nextjs
-            git pull origin main
+            # 🌟 変更: 強制的にGitHubのmainブランチに同期する
+            git fetch origin main
+            git reset --hard origin/main
 
             npm ci
             npm run build
