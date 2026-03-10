@@ -1,4 +1,6 @@
 import { getPool } from '@/lib/db';
+import { s3 } from '@/lib/s3';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
 
 export const runtime = 'nodejs';
 
@@ -13,8 +15,8 @@ export async function GET(
   }
 
   const pool = getPool();
-  const result = await pool.query<{ content_type: string; bytes: Buffer }>(
-    'SELECT content_type, bytes FROM images WHERE id = $1',
+  const result = await pool.query<{ content_type: string; s3_key: string }>(
+    'SELECT content_type, s3_key FROM images WHERE id = $1',
     [Number(id)]
   );
 
@@ -23,9 +25,15 @@ export async function GET(
   }
 
   const row = result.rows[0];
-  const body = new Uint8Array(row.bytes);
 
-  return new Response(body, {
+  const obj = await s3.send(
+    new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET!,
+      Key: row.s3_key,
+    })
+  );
+
+  return new Response(obj.Body as any, {
     status: 200,
     headers: {
       'Content-Type': row.content_type,
