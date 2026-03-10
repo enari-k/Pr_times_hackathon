@@ -208,6 +208,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
         
         if (response.ok) { 
           lastSavedRef.current = currentContent; 
+          console.log('5秒ごとの自動保存が完了しました');
         }
       } catch (e) { 
         console.error('[autosave] error', e); 
@@ -234,7 +235,9 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
         const aiResult = aiData.result;
 
         if (aiResult !== 'OK') {
-          const proceed = window.confirm(`⚠️ 【AIコンプライアンス警告】\n\n公開してはいけない情報が含まれている可能性があります：\n\n${aiResult}\n\n本当にこのまま保存（公開）してよろしいですか？`);
+          const proceed = window.confirm(`【AIコンプライアンス警告】\n\n公開してはいけない情報が含まれている可能性があります：\n\n${aiResult}\n\n本当にこのまま保存（公開）してよろしいですか？`);
+          
+          // 「キャンセル」を押したら保存処理をストップ
           if (!proceed) {
             setIsCheckingAI(false);
             return;
@@ -284,6 +287,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
             transition: 'all 0.3s', ...badgeStyle
           }}>
             {badgeText}
+
           </span>
         </div>
           
@@ -319,7 +323,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
                 cursor: isSendingEmail || !approvalEmail ? 'not-allowed' : 'pointer',
               }}
             >
-              {isSendingEmail ? '送信中...' : '✉️ 承認依頼'}
+              {isSendingEmail ? '送信中...' : '承認依頼'}
             </button>
           </div>
 
@@ -332,7 +336,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
               cursor: isSaving || isCheckingAI || !isApproved ? 'not-allowed' : 'pointer'
             }}
           >
-            {isCheckingAI ? '🤖 AIチェック中...' : isSaving ? '保存中...' : '💾 保存'}
+            {isCheckingAI ? 'AIチェック中...' : isSaving ? '保存中...' : '保存'}
           </button>
         </div>
       </header>
