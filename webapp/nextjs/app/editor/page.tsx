@@ -118,7 +118,6 @@ const Toolbar = ({
     }`;
   };
 
-  // リンク挿入処理
   const setLink = () => {
     const previousUrl = editor.getAttributes('link').href;
     const url = window.prompt('URLを入力してください:', previousUrl);
@@ -130,7 +129,6 @@ const Toolbar = ({
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
-  // リンク解除処理（ここを修正）
   const unsetLink = () => {
     editor.chain().focus().extendMarkRange('link').unsetLink().run();
   };
@@ -143,10 +141,8 @@ const Toolbar = ({
       <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={getButtonStyle('bulletList')}>• 箇条書き</button>
       <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={getButtonStyle('orderedList')}>1. 番号</button>
       
-      {/* リンクボタン */}
       <button type="button" onClick={setLink} className={getButtonStyle('link')}>🔗 リンク</button>
       
-      {/* 修正した解除ボタン */}
       <button 
         type="button" 
         onClick={unsetLink} 
@@ -170,20 +166,17 @@ const Toolbar = ({
         {showAiBalloon && (
           <div className="absolute top-full left-0 mt-3 w-[500px] p-6 bg-white border border-indigo-100 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in duration-200 cursor-default">
             <div className="absolute -top-2 left-6 w-4 h-4 bg-white border-t border-l border-indigo-100 rotate-45"></div>
-            
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">✨</span>
               <label className="block text-md font-bold text-gray-800">AIに執筆を依頼する</label>
             </div>
-
             <textarea
               autoFocus
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="商品の特徴や自社の強みを入力してください。具体的な情報が多いほど、質の高い記事になります。"
+              placeholder="商品の特徴や自社の強みを入力してください。"
               className="w-full p-4 border border-indigo-100 rounded-xl text-black text-base focus:ring-4 focus:ring-indigo-50 outline-none min-h-[220px] transition-all resize-y"
             />
-
             <button 
               type="button"
               onClick={handleAiGenerate}
@@ -199,7 +192,6 @@ const Toolbar = ({
   );
 };
 
-// --- メインページ ---
 export default function EditorPage() {
   const { data, isPending, isError } = usePressReleaseQuery();
 
@@ -219,26 +211,17 @@ export default function EditorPage() {
 function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: string; initialContent: any }) {
   const [title, setTitle] = useState(initialTitle);
   const [mounted, setMounted] = useState(false);
-  
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAiBalloon, setShowAiBalloon] = useState(false);
 
   const titleRef = useRef(title);
   const balloonRef = useRef<HTMLDivElement>(null);
+  const lastSavedRef = useRef<string>('');
+  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => { titleRef.current = title; }, [title]);
-  useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (balloonRef.current && !balloonRef.current.contains(event.target as Node)) {
-        setShowAiBalloon(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  useEffect(() => { setMounted(true); return () => { if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current); }; }, []);
 
   const editor = useEditor({
     extensions: [
@@ -253,11 +236,53 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
   const { data: templates } = useTemplatesQuery();
   const { mutate: saveAsTemplate } = useSaveTemplateMutation();
 
+  // 自動保存ロジック
+  useEffect(() => {
+    if (!editor) return;
+    lastSavedRef.current = JSON.stringify(editor.getJSON());
+
+    autosaveTimerRef.current = setInterval(async () => {
+      const currentTitle = titleRef.current;
+      const currentContent = JSON.stringify(editor.getJSON());
+      if (currentContent === lastSavedRef.current) return;
+
+      try {
+        const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: currentTitle, content: currentContent }),
+        });
+        if (res.ok) {
+          lastSavedRef.current = currentContent;
+          console.log('[autosave] saved', new Date().toISOString());
+        }
+      } catch (e) { console.error('[autosave] network error', e); }
+    }, 5000);
+
+    return () => { if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current); };
+  }, [editor]);
+
+  const handleSave = async () => {
+    if (!editor) return;
+    if (!title.trim()) return alert("タイトルを入力してください");
+
+    const validateResponse = await fetch('/api/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, content: editor.getText() }),
+    });
+
+    if (!validateResponse.ok) return alert('バリデーションに失敗しました');
+
+    const content = JSON.stringify(editor.getJSON());
+    savePressRelease({ title, content });
+    lastSavedRef.current = content;
+  };
+
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
     setIsGenerating(true);
     setShowAiBalloon(false);
-
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -270,11 +295,8 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
         editor?.commands.setContent(data.content);
         window.scrollTo({ top: 400, behavior: 'smooth' });
       }
-    } catch (e) {
-      alert("AI生成に失敗しました。");
-    } finally {
-      setIsGenerating(false);
-    }
+    } catch (e) { alert("AI生成に失敗しました。"); }
+    finally { setIsGenerating(false); }
   };
 
   const handleApplyTemplate = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -291,6 +313,14 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
     e.target.value = "";
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (balloonRef.current && !balloonRef.current.contains(event.target as Node)) setShowAiBalloon(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!mounted) return null;
 
   return (
@@ -304,7 +334,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
           }} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold transition-colors">
             テンプレート保存
           </button>
-          <button onClick={() => savePressRelease({ title, content: JSON.stringify(editor?.getJSON()) })} className={styles.saveButton} disabled={isSaving}>
+          <button onClick={handleSave} className={styles.saveButton} disabled={isSaving}>
             {isSaving ? '保存中...' : '保存'}
           </button>
         </div>
@@ -316,9 +346,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
             <label className="text-sm font-semibold text-gray-600">テンプレートを選択</label>
             <select onChange={handleApplyTemplate} className="w-full p-2 border border-gray-300 rounded-md text-black bg-white shadow-sm">
               <option value="">保存済みテンプレートを適用する...</option>
-              {templates?.map((t: any) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+              {templates?.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
 
@@ -358,8 +386,9 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
         .tiptap-container .tiptap h2 { font-size: 1.5rem; font-weight: bold; margin: 1.5rem 0 1rem; border-left: 4px solid #4f46e5; padding-left: 0.5rem; }
         .tiptap-container .tiptap ul { list-style-type: disc !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
         .tiptap-container .tiptap ol { list-style-type: decimal !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
+        .tiptap-container .tiptap li p { margin: 0 !important; }
         .tiptap-container .tiptap p { margin-bottom: 1.2rem; }
-        .tiptap-container .tiptap strong { font-weight: bold !important; color: #000; }
+        .tiptap-container .tiptap strong { font-weight: bold !important; }
         html { scroll-behavior: smooth; }
       `}</style>
     </div>

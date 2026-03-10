@@ -27,3 +27,7 @@ jobs:
             npm run build
             # PM2でNext.jsを再起動（無ければ起動）
             pm2 restart nextjs-app || pm2 start npm --name "nextjs-app" -- start
+            export AWS_REGION="ap-southeast-2"
+            export S3_BUCKET="${{ secrets.S3_BUCKET }}"
+
+            pm2 restart nextjs-app --update-env || pm2 start npm --name "nextjs-app" -- start
