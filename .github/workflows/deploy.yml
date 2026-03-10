@@ -24,9 +24,6 @@ jobs:
 
             command -v pm2 >/dev/null 2>&1 || npm i -g pm2
 
-            export AWS_REGION="ap-southeast-2"
-            export S3_BUCKET="${{ secrets.S3_BUCKET }}"
-
             cd /home/ubuntu/Pr_times_hackathon/webapp/nextjs
             git pull origin main
 
