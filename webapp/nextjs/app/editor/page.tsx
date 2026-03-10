@@ -81,7 +81,7 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
 
   const setLink = () => {
     const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('リンク先のURLを入力してください:', previousUrl);
+    const url = window.prompt('リンク先のURLを入力:', previousUrl);
 
     if (url === null) return;
     if (url === '') {
