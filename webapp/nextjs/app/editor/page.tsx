@@ -23,6 +23,7 @@ import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import TitleCounter from '@/components/editor/counter/TitleCounter';
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
+import AIFixPanel from '@/components/ai/AIFixPanel';
 import { validateContent, validateTitle } from '@/utils/validation';
 
 import type { PressRelease } from '@/lib/types';
@@ -357,59 +358,85 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
 
   return (
     <div className={styles.container}>
-      <header className={styles.header} style={{ position: 'relative' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <h1 className={styles.title}>プレスリリースエディター</h1>
-        <span
-          style={{
-            padding: '6px 12px',
-            borderRadius: '999px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            transition: 'all 0.3s',
-            ...badgeStyle,
-          }}
-        >
-          {badgeText}
-        </span>
-      </div>
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          transform: 'translateX(-50%)',
-        }}
-      >
-        <NextLink
-          href="/starter"
-          style={{
-            padding: '8px 16px',
-            borderRadius: '6px',
-            border: '1px solid #d1d5db',
-            backgroundColor: '#ffffff',
-            color: '#374151',
-            fontWeight: 'bold',
-            textDecoration: 'none',
-            fontSize: '14px',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-          }}
-        >
-          チュートリアル
-        </NextLink>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="flex gap-2">
-          <input
-            type="email"
-            placeholder="承認者のアドレス"
-            value={approvalEmail}
-            onChange={(e) => setApprovalEmail(e.target.value)}
+      <header className={styles.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h1 className={styles.title}>プレスリリースエディター</h1>
+          
+          <span style={{
+            padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 'bold',
+            transition: 'all 0.3s', ...badgeStyle
+          }}>
+            {badgeText}
+
+          </span>
+        </div>
+          
+        <div>
+          <NextLink 
+            href="/starter" 
             style={{
-              padding: '8px',
-              borderRadius: '6px',
-              border: '1px solid #d1d5db',
-              outline: 'none',
-              color: 'black',
+              padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db', 
+              backgroundColor: '#ffffff', color: '#374151', fontWeight: 'bold', 
+              textDecoration: 'none', display: 'inline-block', fontSize: '14px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            チュートリアル
+          </NextLink>
+          {/* 🌟 追加: プレビュー画面へのリンク */}
+          <NextLink 
+            href="/preview" 
+            style={{
+              padding: '8px 16px', borderRadius: '6px', border: '1px solid #3b82f6', 
+              backgroundColor: '#eff6ff', color: '#1d4ed8', fontWeight: 'bold', 
+              textDecoration: 'none', display: 'inline-block', fontSize: '14px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            👁️ プレビュー
+          </NextLink>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="email"
+              placeholder="承認者のアドレス"
+              value={approvalEmail}
+              onChange={(e) => setApprovalEmail(e.target.value)}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none' }}
+            />
+            <button 
+              onClick={handleSendApproval} 
+              disabled={isSendingEmail || !approvalEmail}
+              style={{
+                padding: '8px 16px', borderRadius: '6px', border: 'none', fontWeight: 'bold',
+                backgroundColor: isSendingEmail || !approvalEmail ? '#9ca3af' : '#2563eb', color: 'white',
+                cursor: isSendingEmail || !approvalEmail ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isSendingEmail ? '送信中...' : '承認依頼'}
+            </button>
+          </div>
+
+          <button 
+            onClick={handleSave} 
+            className={styles.saveButton} 
+            disabled={isSaving || isCheckingAI}
+            style={{
+              opacity: isSaving || isCheckingAI ? 0.5 : 1,
+              cursor: isSaving || isCheckingAI ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isCheckingAI ? 'AIチェック中...' : isSaving ? '保存中...' : '保存'}
+          </button>
+          <button 
+            onClick={handleSave} 
+            className={styles.saveButton} 
+            disabled={isSaving || isCheckingAI || !isApproved}
+            style={{
+            opacity: isSaving || isCheckingAI || !isApproved ? 0.5 : 1,
+              cursor: isSaving || isCheckingAI || !isApproved ? 'not-allowed' : 'pointer'
             }}
           />
           <button
@@ -417,7 +444,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
             disabled={isSendingEmail || !approvalEmail}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold disabled:opacity-50"
           >
-            {isSendingEmail ? '送信中...' : '承認依頼'}
+            {isCheckingAI ? 'AIチェック中...' : isSaving ? '公開中...' : '公開'}
           </button>
         </div>
 
@@ -438,6 +465,13 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
               <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#92400e', fontWeight: 'bold' }}>💬 承認者からのコメント</h3>
               <p style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#92400e', fontSize: '14px' }}>{approverComment}</p>
             </div>
+          )}
+          {approverComment && (
+            <AIFixPanel
+              editor={editor}
+              title={title}
+              approverComment={approverComment}
+            />
           )}
 
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
