@@ -135,6 +135,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
   const [mounted, setMounted] = useState(false);
   const [approvalEmail, setApprovalEmail] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isCheckingAI, setIsCheckingAI] = useState(false);
 
   const titleRef = useRef(title);
   useEffect(() => { titleRef.current = title; }, [title]);
@@ -213,11 +214,49 @@ autosaveTimerRef.current = setInterval(async () => {
   }, [editor]);
 
 
+  // 🌟 ここを変更: 保存前にAIチェックを挟む
   const handleSave = async () => {
     if (!editor) return;
+    
+    // 文字列として本文を取得
+    const text = editor.getText();
+
+    setIsCheckingAI(true);
+    try {
+      // 1. AIコンプライアンスチェックAPIを叩く
+      const aiRes = await fetch('/api/check-compliance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // タイトルと本文を結合してAIに渡す
+        body: JSON.stringify({ text: `【タイトル】\n${title}\n\n【本文】\n${text}` }),
+      });
+
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        const aiResult = aiData.result;
+
+        // 2. もしAIの返答が「OK」でなければ（警告があれば）、確認ダイアログを出す
+        if (aiResult !== 'OK') {
+          const proceed = window.confirm(`⚠️ 【AIコンプライアンス警告】\n\n公開してはいけない情報が含まれている可能性があります：\n\n${aiResult}\n\n本当にこのまま保存（公開）してよろしいですか？`);
+          
+          // 「キャンセル」を押したら保存処理をストップ
+          if (!proceed) {
+            setIsCheckingAI(false);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('AIチェックエラー:', e);
+      // AIエラー時は進行を妨げないようにするか、要件に合わせて調整
+    } finally {
+      setIsCheckingAI(false);
+    }
+
+    // 3. AIチェックを通過（または無視して強行）したら、本来の保存処理を実行
     const content = JSON.stringify(editor.getJSON());
     mutate({ title, content });
-    lastSavedRef.current = content; // 🌟 ここを追加: 手動保存時にも前回保存分を更新
+    lastSavedRef.current = content; 
   };
 
   const handleSendApproval = async () => {
@@ -282,17 +321,17 @@ autosaveTimerRef.current = setInterval(async () => {
           </div>
 
           {/* 🌟 変更: 未承認の場合は保存ボタンを無効化し、マウスカーソルも禁止マークにする */}
+{/* 🌟 ここを変更: AIチェック中の表示と無効化を追加 */}
           <button 
             onClick={handleSave} 
             className={styles.saveButton} 
-            disabled={isSaving || !isApproved}
+            disabled={isSaving || isCheckingAI || !isApproved}
             style={{
-              opacity: isSaving || !isApproved ? 0.5 : 1,
-              cursor: isSaving || !isApproved ? 'not-allowed' : 'pointer'
+              opacity: isSaving || isCheckingAI || !isApproved ? 0.5 : 1,
+              cursor: isSaving || isCheckingAI || !isApproved ? 'not-allowed' : 'pointer'
             }}
-            title={!isApproved ? '承認されるまで保存（公開）できません' : '保存する'}
           >
-            {isSaving ? '保存中...' : '💾 保存'}
+            {isCheckingAI ? '🤖 AIチェック中...' : isSaving ? '保存中...' : '💾 保存'}
           </button>
         </div>
       </header>
