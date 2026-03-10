@@ -24,6 +24,7 @@ import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import TitleCounter from '@/components/editor/counter/TitleCounter';
 import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
+import AIFixPanel from '@/components/ai/AIFixPanel';
 import { validateContent, validateTitle } from '@/utils/validation';
 
 import type { PressRelease } from '@/lib/types';
@@ -375,6 +376,13 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
                 {approverComment}
               </p>
             </div>
+          )}
+          {approverComment && (
+            <AIFixPanel
+              editor={editor}
+              title={title}
+              approverComment={approverComment}
+            />
           )}
 
           <div className={styles.titleInputWrapper}>
