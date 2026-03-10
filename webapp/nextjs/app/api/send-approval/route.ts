@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
     // 承認画面のURL (本番環境のドメインを環境変数から取得、なければlocalhost)
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const approvalUrl = `${baseUrl}/press-releases/${pressReleaseId}/approve`;
+    const approvalUrl = `${baseUrl}/approve`;
 
     // メールの内容
     const mailOptions = {
