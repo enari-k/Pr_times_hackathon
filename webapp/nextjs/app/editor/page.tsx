@@ -11,13 +11,6 @@ import Text from '@tiptap/extension-text';
 import Bold from '@tiptap/extension-bold';
 import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
-// リスト拡張機能
-import BulletList from '@tiptap/extension-bullet-list';
-import OrderedList from '@tiptap/extension-ordered-list';
-import ListItem from '@tiptap/extension-list-item';
-
-import type { PressRelease } from '@/lib/types';
-import styles from './page.module.css';
 import Image from '@tiptap/extension-image';
 
 import CharacterCounter from '@/components/editor/counter/CharacterCounter';
@@ -27,6 +20,9 @@ import ImageUploadButton from './media/ImageUploadButton';
 import ImageUrlInsert from './media/ImageUrlInsert';
 
 import { validateContent, validateTitle } from '@/utils/validation';
+
+import type { PressRelease } from '@/lib/types';
+import styles from './page.module.css';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -73,15 +69,15 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
 
   const getButtonStyle = (name: string) => {
     const isActive = editor.isActive(name);
-    return `px-3 py-2 border rounded font-bold transition-colors ${
-      isActive 
-        ? 'bg-blue-600 text-white border-blue-700' 
+    return `px-4 py-2 border rounded font-bold transition-colors ${
+      isActive
+        ? 'bg-blue-600 text-white border-blue-700'
         : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
     }`;
   };
 
   return (
-    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap">
+    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black">
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}
@@ -102,22 +98,6 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
         className={getButtonStyle('underline')}
       >
         U
-      </button>
-      
-      {/* リストボタン */}
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        className={getButtonStyle('bulletList')}
-      >
-        • 箇条書き
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        className={getButtonStyle('orderedList')}
-      >
-        1. 番号
       </button>
     </div>
   );
@@ -173,20 +153,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
   useEffect(() => setMounted(true), []);
 
   const editor = useEditor({
-    extensions: [
-      Document,
-      Heading,
-      Paragraph,
-      Text,
-      Bold,
-      Italic,
-      Underline,
-      // リスト拡張機能の登録
-      BulletList,
-      OrderedList,
-      ListItem,
-      Image,
-    ],
+    extensions: [Document, Heading, Paragraph, Text, Bold, Italic, Underline, Image],
     content: initialContent,
     immediatelyRender: false,
   });
@@ -242,8 +209,15 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
   const handleSave = async () => {
     if (!editor) return;
 
-    if (!title.trim()) {
-      alert("タイトルを入力してください");
+    const titleError = validateTitle(title);
+    const contentError = validateContent(editor.getText());
+
+    if (titleError) {
+      alert(titleError);
+      return;
+    }
+    if (contentError) {
+      alert(contentError);
       return;
     }
 
@@ -298,13 +272,10 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
             <Toolbar editor={editor} />
 
-            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <ImageUploadButton editor={editor} />
-
-            <div>
+            <div style={{ margin: '12px 0', padding: '0 12px', display: 'flex', gap: 8 }}>
+              <ImageUploadButton editor={editor} />
               <ImageUrlInsert editor={editor} />
             </div>
-          </div>
 
             <div className="tiptap-container">
               <EditorContent editor={editor} className={styles.editorContent} />
@@ -318,39 +289,24 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
       </main>
 
       <style jsx global>{`
-        /* エディタ入力エリアの基本設定 */
         .tiptap-container .tiptap {
-          padding: 1.5rem;
+          padding: 1rem;
           min-height: 400px;
           outline: none;
           color: black;
-          background-color: white;
         }
-
-        /* 箇条書き (ul) のスタイル */
-        .tiptap-container .tiptap ul {
-          list-style-type: disc !important;
-          padding-left: 2rem !important;
-          margin: 1rem 0 !important;
+        .tiptap-container .tiptap u {
+          text-decoration: underline !important;
         }
-
-        /* 番号付きリスト (ol) のスタイル */
-        .tiptap-container .tiptap ol {
-          list-style-type: decimal !important;
-          padding-left: 2rem !important;
-          margin: 1rem 0 !important;
+        .tiptap-container .tiptap strong {
+          font-weight: bold !important;
         }
-
-        /* リスト項目 (li) 内の段落余白を調整 */
-        .tiptap-container .tiptap li p {
-          margin: 0 !important;
+        .tiptap-container .tiptap em {
+          font-style: italic !important;
         }
-
-        /* その他の基本装飾 */
-        .tiptap-container .tiptap u { text-decoration: underline !important; }
-        .tiptap-container .tiptap strong { font-weight: bold !important; }
-        .tiptap-container .tiptap em { font-style: italic !important; }
-        .tiptap-container .tiptap p { margin-bottom: 1rem; }
+        .tiptap-container .tiptap p {
+          margin-bottom: 1rem;
+        }
       `}</style>
     </div>
   );
