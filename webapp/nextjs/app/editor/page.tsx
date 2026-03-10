@@ -27,6 +27,7 @@ import { validateContent, validateTitle } from '@/utils/validation';
 
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
+import NextLink from 'next/link'; // 🌟 ここを追加！（TiptapのLinkと被らないように別名にします）
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -296,7 +297,26 @@ autosaveTimerRef.current = setInterval(async () => {
             {isApproved ? '✅ 承認済み' : '✏️ 編集中 / 承認待ち'}
           </span>
         </div>
-
+          {/* 🌟 変更: /starter への遷移ボタンを実装 */}
+          <div>
+            <NextLink 
+              href="/starter" 
+              style={{
+                padding: '8px 16px', 
+                borderRadius: '6px', 
+                border: '1px solid #d1d5db', 
+                backgroundColor: '#ffffff', 
+                color: '#374151', 
+                fontWeight: 'bold', 
+                textDecoration: 'none',
+                display: 'inline-block',
+                fontSize: '14px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            >
+              チュートリアルへ
+            </NextLink>
+          </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {/* メール送信UI */}
           <div style={{ display: 'flex', gap: '8px' }}>
