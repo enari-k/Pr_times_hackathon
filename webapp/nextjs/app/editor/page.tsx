@@ -84,7 +84,7 @@ const Toolbar = ({
   aiPrompt: string;
   setAiPrompt: (val: string) => void;
   handleAiGenerate: () => void;
-  balloonRef: React.RefObject<HTMLDivElement>;
+  balloonRef: React.RefObject<HTMLDivElement | null>;
 }) => {
   if (!editor) return null;
 
