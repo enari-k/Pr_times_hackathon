@@ -80,6 +80,19 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
     }`;
   };
 
+  const setLink = () => {
+    const previousUrl = editor.getAttributes('link').href;
+    const url = window.prompt('リンク先のURLを入力:', previousUrl);
+
+    if (url === null) return;
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  };
+
   return (
     <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap">
       <button
