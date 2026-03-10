@@ -31,6 +31,7 @@ jobs:
             npm ci
             npm run build
             
+            npx pm2 list
             # 起動/再起動 (npx pm2 で統一)
             npx pm2 restart nextjs-app --update-env || npx pm2 start npm --name "nextjs-app" -- start --update-env
             
