@@ -204,7 +204,7 @@ autosaveTimerRef.current = setInterval(async () => {
         
         if (response.ok) { 
           lastSavedRef.current = currentContent; 
-          console.log('📝 5秒ごとの自動保存が完了しました');
+          console.log('5秒ごとの自動保存が完了しました');
         }
       } catch (e) { 
         console.error('[autosave] error', e); 
@@ -238,7 +238,7 @@ autosaveTimerRef.current = setInterval(async () => {
 
         // 2. もしAIの返答が「OK」でなければ（警告があれば）、確認ダイアログを出す
         if (aiResult !== 'OK') {
-          const proceed = window.confirm(`⚠️ 【AIコンプライアンス警告】\n\n公開してはいけない情報が含まれている可能性があります：\n\n${aiResult}\n\n本当にこのまま保存（公開）してよろしいですか？`);
+          const proceed = window.confirm(`【AIコンプライアンス警告】\n\n公開してはいけない情報が含まれている可能性があります：\n\n${aiResult}\n\n本当にこのまま保存（公開）してよろしいですか？`);
           
           // 「キャンセル」を押したら保存処理をストップ
           if (!proceed) {
@@ -294,7 +294,7 @@ autosaveTimerRef.current = setInterval(async () => {
             color: isApproved ? '#065f46' : '#4b5563',
             transition: 'all 0.3s'
           }}>
-            {isApproved ? '✅ 承認済み' : '✏️ 編集中 / 承認待ち'}
+            {isApproved ? '承認済み' : '編集中 / 承認待ち'}
           </span>
         </div>
           {/* 🌟 変更: /starter への遷移ボタンを実装 */}
@@ -336,7 +336,7 @@ autosaveTimerRef.current = setInterval(async () => {
                 cursor: isSendingEmail || !approvalEmail ? 'not-allowed' : 'pointer',
               }}
             >
-              {isSendingEmail ? '送信中...' : '✉️ 承認依頼'}
+              {isSendingEmail ? '送信中...' : '承認依頼'}
             </button>
           </div>
 
@@ -351,7 +351,7 @@ autosaveTimerRef.current = setInterval(async () => {
               cursor: isSaving || isCheckingAI || !isApproved ? 'not-allowed' : 'pointer'
             }}
           >
-            {isCheckingAI ? '🤖 AIチェック中...' : isSaving ? '保存中...' : '💾 保存'}
+            {isCheckingAI ? 'AIチェック中...' : isSaving ? '保存中...' : '保存'}
           </button>
         </div>
       </header>
