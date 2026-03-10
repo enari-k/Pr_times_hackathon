@@ -438,25 +438,11 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
             opacity: isSaving || isCheckingAI || !isApproved ? 0.5 : 1,
               cursor: isSaving || isCheckingAI || !isApproved ? 'not-allowed' : 'pointer'
             }}
-          />
-          <button
-            onClick={handleSendApproval}
-            disabled={isSendingEmail || !approvalEmail}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold disabled:opacity-50"
           >
             {isCheckingAI ? 'AIチェック中...' : isSaving ? '公開中...' : '公開'}
           </button>
         </div>
-
-        <button
-          onClick={handleSave}
-          className={styles.saveButton}
-          disabled={isSaving || isCheckingAI || !isApproved}
-        >
-          {isCheckingAI ? 'AIチェック中...' : isSaving ? '保存中...' : '保存'}
-        </button>
-      </div>
-    </header>
+      </header>
 
       <main className={styles.main}>
         <div className={styles.editorWrapper}>
@@ -466,6 +452,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
               <p style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#92400e', fontSize: '14px' }}>{approverComment}</p>
             </div>
           )}
+          
           {approverComment && (
             <AIFixPanel
               editor={editor}
@@ -486,11 +473,12 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
               balloonRef={balloonRef}
             />
 
-            <div className="flex p-2 gap-2 bg-gray-100 border-b overflow-x-auto" style={{marginBottom: '20px'}}>
+            <div className="flex p-2 gap-2 bg-gray-100 border-b overflow-x-auto">
               <ImageUploadButton editor={editor} />
               <ImageUrlInsert editor={editor} />
             </div>
-            <div className={`${styles.titleInputWrapper}`} style={{ paddingTop: '20px', display: 'block'}}>
+
+            <div className={styles.titleInputWrapper} style={{ paddingTop: '20px' }}>
               <input 
                 type="text" 
                 value={title} 
@@ -509,24 +497,16 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
 
       <style jsx global>{`
         .tiptap-container .tiptap { 
-          padding: 0 2rem 2rem 2rem; /* 上のパディングを0に */
+          padding: 0 2rem 2rem 2rem;
           min-height: 500px; 
           outline: none; 
           color: #1a1a1a; 
         }
-        
-        .tiptap-container .tiptap p:first-child {
-          margin-top: 0 !important;
-        }
-
-        .tiptap-container .tiptap p {
-          margin-top: 0;
-          margin-bottom: 1.2rem;
-        }
+        .tiptap-container .tiptap p:first-child { margin-top: 0 !important; }
+        .tiptap-container .tiptap p { margin-top: 0; margin-bottom: 1.2rem; }
         .tiptap-container .tiptap ul { list-style-type: disc !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
         .tiptap-container .tiptap ol { list-style-type: decimal !important; padding-left: 2rem !important; margin: 1rem 0 !important; }
         .tiptap-container .tiptap li p { margin: 0 !important; }
-        .tiptap-container .tiptap p { margin-bottom: 1.2rem; }
         .tiptap-container .tiptap strong { font-weight: bold !important; }
         .tiptap-container .tiptap img { max-width: 100%; height: auto; border-radius: 4px; }
         html { scroll-behavior: smooth; }
