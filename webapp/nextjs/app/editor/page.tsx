@@ -29,7 +29,7 @@ import ImageUrlInsert from './media/ImageUrlInsert';
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
 
-// --- データ取得系Hooks ---
+// --- API Hooks ---
 function usePressReleaseQuery() {
   return useQuery({
     queryKey,
@@ -52,7 +52,6 @@ function useTemplatesQuery() {
   });
 }
 
-// --- 保存処理系Hooks ---
 function useSavePressReleaseMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -91,8 +90,27 @@ function useSaveTemplateMutation() {
 }
 
 // --- ツールバーコンポーネント ---
-const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
+const Toolbar = ({ 
+  editor, 
+  onAiToggle, 
+  isGenerating, 
+  showAiBalloon, 
+  aiPrompt, 
+  setAiPrompt, 
+  handleAiGenerate,
+  balloonRef 
+}: { 
+  editor: TiptapEditor | null;
+  onAiToggle: () => void;
+  isGenerating: boolean;
+  showAiBalloon: boolean;
+  aiPrompt: string;
+  setAiPrompt: (val: string) => void;
+  handleAiGenerate: () => void;
+  balloonRef: React.RefObject<HTMLDivElement>;
+}) => {
   if (!editor) return null;
+
   const getButtonStyle = (name: string) => {
     const isActive = editor.isActive(name);
     return `px-3 py-2 border rounded font-bold transition-colors ${
@@ -100,28 +118,88 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
     }`;
   };
 
+  // リンク挿入処理
   const setLink = () => {
     const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URLを入力:', previousUrl);
+    const url = window.prompt('URLを入力してください:', previousUrl);
     if (url === null) return;
-    if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
+    if (url === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      return;
+    }
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
+  // リンク解除処理（ここを修正）
+  const unsetLink = () => {
+    editor.chain().focus().extendMarkRange('link').unsetLink().run();
+  };
+
   return (
-    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap">
+    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap items-center">
       <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={getButtonStyle('bold')}>B</button>
       <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={getButtonStyle('italic')}>I</button>
       <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()} className={getButtonStyle('underline')}>U</button>
       <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={getButtonStyle('bulletList')}>• 箇条書き</button>
       <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={getButtonStyle('orderedList')}>1. 番号</button>
+      
+      {/* リンクボタン */}
       <button type="button" onClick={setLink} className={getButtonStyle('link')}>🔗 リンク</button>
-      <button type="button" onClick={() => editor.chain().focus().unsetLink().run()} disabled={!editor.isActive('link')} className="px-3 py-2 border rounded font-bold bg-white text-gray-700 disabled:opacity-50">解除</button>
+      
+      {/* 修正した解除ボタン */}
+      <button 
+        type="button" 
+        onClick={unsetLink} 
+        disabled={!editor.isActive('link')} 
+        className="px-3 py-2 border rounded font-bold bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-100 border-gray-300"
+      >
+        解除
+      </button>
+
+      {/* AIボタン */}
+      <div className="relative ml-2" ref={balloonRef}>
+        <button 
+          type="button"
+          onClick={onAiToggle} 
+          disabled={isGenerating}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 shadow-md disabled:opacity-50 text-sm"
+        >
+          {isGenerating ? '✨ 生成中...' : '✨ AIで記事作成'}
+        </button>
+
+        {showAiBalloon && (
+          <div className="absolute top-full left-0 mt-3 w-[500px] p-6 bg-white border border-indigo-100 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in duration-200 cursor-default">
+            <div className="absolute -top-2 left-6 w-4 h-4 bg-white border-t border-l border-indigo-100 rotate-45"></div>
+            
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">✨</span>
+              <label className="block text-md font-bold text-gray-800">AIに執筆を依頼する</label>
+            </div>
+
+            <textarea
+              autoFocus
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="商品の特徴や自社の強みを入力してください。具体的な情報が多いほど、質の高い記事になります。"
+              className="w-full p-4 border border-indigo-100 rounded-xl text-black text-base focus:ring-4 focus:ring-indigo-50 outline-none min-h-[220px] transition-all resize-y"
+            />
+
+            <button 
+              type="button"
+              onClick={handleAiGenerate}
+              disabled={!aiPrompt.trim()}
+              className="w-full mt-4 bg-indigo-600 text-white py-3 rounded-xl font-bold text-md hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
+            >
+              この記事の内容で下書きを生成する
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-// --- メインコンポーネント ---
+// --- メインページ ---
 export default function EditorPage() {
   const { data, isPending, isError } = usePressReleaseQuery();
 
@@ -142,7 +220,6 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
   const [title, setTitle] = useState(initialTitle);
   const [mounted, setMounted] = useState(false);
   
-  // AI生成関連ステート
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAiBalloon, setShowAiBalloon] = useState(false);
@@ -153,7 +230,6 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
   useEffect(() => { titleRef.current = title; }, [title]);
   useEffect(() => setMounted(true), []);
 
-  // 吹き出しの外側クリックで閉じる処理
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (balloonRef.current && !balloonRef.current.contains(event.target as Node)) {
@@ -222,64 +298,12 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
       <header className={styles.header}>
         <h1 className={styles.title}>プレスリリースエディター</h1>
         <div className="flex gap-2">
-          
-          {/* AI生成ボタン & 吹き出し */}
-          <div className="relative" ref={balloonRef}>
-            <button 
-              onClick={() => setShowAiBalloon(!showAiBalloon)} 
-              disabled={isGenerating}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 shadow-md disabled:opacity-50"
-            >
-              {isGenerating ? '✨ 生成中...' : '✨ AIで記事作成'}
-            </button>
-
-            {showAiBalloon && (
-              <div className="absolute top-full right-0 mt-3 w-[500px] p-6 bg-white border border-indigo-100 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
-                <div className="absolute -top-2 right-10 w-4 h-4 bg-white border-t border-l border-indigo-100 rotate-45"></div>
-                
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg">✨</span>
-                  <label className="block text-md font-bold text-gray-800">AIに執筆を依頼する</label>
-                </div>
-
-                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-                  商品の特徴や自社の強みを入力してください。具体的な情報が多いほど、質の高い下書きが作成されます。
-                </p>
-
-                <textarea
-                  autoFocus
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="記事の内容を入力してください"
-                  className="w-full p-4 border border-indigo-100 rounded-xl text-black text-base focus:ring-4 focus:ring-indigo-50 outline-none min-h-[220px] transition-all resize-y"
-                />
-
-                <div className="mt-4 flex flex-col gap-2">
-                  <button 
-                    onClick={handleAiGenerate}
-                    disabled={!aiPrompt.trim()}
-                    className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-md hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
-                  >
-                    この記事の内容で下書きを生成する
-                  </button>
-                  <button 
-                    onClick={() => setShowAiBalloon(false)}
-                    className="w-full text-gray-400 py-1 text-xs hover:text-gray-600 transition-colors"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          
           <button onClick={() => {
             const name = window.prompt('テンプレート名を入力してください');
             if (name) saveAsTemplate({ name, title, content: JSON.stringify(editor?.getJSON()) });
           }} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold transition-colors">
             テンプレート保存
           </button>
-          
           <button onClick={() => savePressRelease({ title, content: JSON.stringify(editor?.getJSON()) })} className={styles.saveButton} disabled={isSaving}>
             {isSaving ? '保存中...' : '保存'}
           </button>
@@ -303,7 +327,16 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
           </div>
 
           <div className="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
-            <Toolbar editor={editor} />
+            <Toolbar 
+              editor={editor} 
+              onAiToggle={() => setShowAiBalloon(!showAiBalloon)}
+              isGenerating={isGenerating}
+              showAiBalloon={showAiBalloon}
+              aiPrompt={aiPrompt}
+              setAiPrompt={setAiPrompt}
+              handleAiGenerate={handleAiGenerate}
+              balloonRef={balloonRef}
+            />
             <div className="flex p-2 gap-2 bg-gray-100 border-b overflow-x-auto">
               <ImageUploadButton editor={editor} />
               <ImageUrlInsert editor={editor} />
