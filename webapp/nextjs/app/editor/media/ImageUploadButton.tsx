@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 
 import { validateImage } from '@/utils/validation';
@@ -14,16 +14,11 @@ export default function ImageUploadButton({ editor }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const pick = () => {
-    if (isUploading) return;
-    inputRef.current?.click();
-  };
-
+  const pick = () => inputRef.current?.click();
   const upload = async (file: File) => {
     if (!editor) return;
-    if (isUploading) return;
 
-    if (!file.type?.startsWith('image/')) {
+    if (!file.type.startsWith('image/')) {
       alert('画像ファイルを選択してください');
       return;
     }
@@ -36,39 +31,28 @@ export default function ImageUploadButton({ editor }: Props) {
 
     setIsUploading(true);
     try {
-      // 🚨 S3(API)を使わず、ブラウザ上で画像をBase64文字列に変換する緊急回避策
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        if (dataUrl) {
-          // 変換したBase64文字列をそのままTiptapのエディタに流し込む
-          editor.chain().focus().setImage({ src: dataUrl }).run();
-        }
-        setIsUploading(false);
-      };
-      
-      reader.onerror = () => {
-        alert('画像の読み込みに失敗しました');
-        setIsUploading(false);
-      };
+      const fd = new FormData();
+      fd.append('file', file);
 
-      // ファイルの読み込み開始
-      reader.readAsDataURL(file);
+      const res = await fetch(`/api/press-releases/${PRESS_RELEASE_ID}`, {
+        method: 'POST',
+        body: fd,
+      });
 
+      if (!res.ok) throw new Error(await res.text());
+
+      const data: { url: string } = await res.json();
+      editor.chain().focus().setImage({ src: data.url }).run();
     } catch (err: any) {
-      alert(err?.message ?? '画像の挿入に失敗しました');
-      console.error(err);
+      alert(err?.message ?? 'アップロードに失敗しました');
+    } finally {
       setIsUploading(false);
     }
   };
 
   const onChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const file = e.target.files?.[0];
-
-    // 同じファイルを連続で選択しても change が出るようにクリア
     e.target.value = '';
-
     if (!file) return;
     await upload(file);
   };
@@ -119,11 +103,10 @@ export default function ImageUploadButton({ editor }: Props) {
           cursor: !editor || isUploading ? 'not-allowed' : 'pointer',
           outline: isDragOver ? '2px dashed #3b82f6' : 'none',
           outlineOffset: 2,
-          opacity: !editor || isUploading ? 0.6 : 1,
         }}
         title="クリックで選択 / ここに画像をドラッグ&ドロップ"
       >
-        {isUploading ? '読み込み中...' : 'クリックで選択 / ここに画像をドラッグ&ドロップ'}
+        {isUploading ? 'アップロード中...' : 'クリックで選択 / ここに画像をドラッグ&ドロップ'}
       </button>
 
       <input
