@@ -1,3 +1,4 @@
+// app/editor/page.tsx
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -13,11 +14,11 @@ import Italic from '@tiptap/extension-italic';
 import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 
-// 🌟 ここを追加: mainブランチにあったリストとリンクの拡張機能を復活
 import BulletList from '@tiptap/extension-bullet-list';
 import OrderedList from '@tiptap/extension-ordered-list';
 import ListItem from '@tiptap/extension-list-item';
 import Link from '@tiptap/extension-link';
+import NextLink from 'next/link';
 
 import CharacterCounter from '@/components/editor/counter/CharacterCounter';
 import TitleCounter from '@/components/editor/counter/TitleCounter';
@@ -27,7 +28,6 @@ import { validateContent, validateTitle } from '@/utils/validation';
 
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
-import NextLink from 'next/link'; // 🌟 ここを追加！（TiptapのLinkと被らないように別名にします）
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -54,14 +54,13 @@ function useSavePressReleaseMutation() {
       });
       if (!response.ok) throw new Error('保存に失敗しました');
       
-      // 🌟 ここを追加: 保存時にステータスをdraftに戻す
+      // 保存時にステータスをdraftに戻す
       await fetch('/api/mock-status', { method: 'PUT' });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['mock-status'] });
-      // 🌟 ここを追加: 保存成功時のアラートを復活
       alert('保存しました！');
     },
   });
@@ -77,7 +76,6 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
     }`;
   };
 
-  // 🌟 ここを追加: リンク設定用の関数を復活
   const setLink = () => {
     const previousUrl = editor.getAttributes('link').href;
     const url = window.prompt('リンク先のURLを入力してください:', previousUrl);
@@ -92,16 +90,12 @@ const Toolbar = ({ editor }: { editor: TiptapEditor | null }) => {
   };
 
   return (
-    // 🌟 ここを変更: flex-wrapを追加してボタンが折り返されるように
     <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap">
       <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={getButtonStyle('bold')}>B</button>
       <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={getButtonStyle('italic')}>I</button>
       <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()} className={getButtonStyle('underline')}>U</button>
-
-      {/* 🌟 ここを追加: リストとリンクのボタンを復活 */}
       <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={getButtonStyle('bulletList')}>• 箇条書き</button>
       <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={getButtonStyle('orderedList')}>1. 番号</button>
-
       <button type="button" onClick={setLink} className={getButtonStyle('link')}>🔗 リンク</button>
       <button 
         type="button" 
@@ -142,7 +136,6 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
   useEffect(() => { titleRef.current = title; }, [title]);
   useEffect(() => setMounted(true), []);
 
-  // 🌟 ステータスを3秒ごとに自動取得（別画面での承認を検知する）
   const { data: statusData } = useQuery({
     queryKey: ['mock-status'],
     queryFn: async () => {
@@ -151,12 +144,26 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
     },
     refetchInterval: 3000, 
   });
-  const isApproved = statusData?.status === 'approved';
+  
+  // 🌟 ステータスの判定を拡張
+  const currentStatus = statusData?.status || 'draft';
+  const approverComment = statusData?.comment || '';
+  const isApproved = currentStatus === 'approved';
+
+  let badgeText = '✏️ 編集中 / 承認待ち';
+  let badgeStyle = { backgroundColor: '#f3f4f6', color: '#4b5563' };
+
+  if (currentStatus === 'approved') {
+    badgeText = '✅ 承認済み';
+    badgeStyle = { backgroundColor: '#d1fae5', color: '#065f46' };
+  } else if (currentStatus === 'rejected') {
+    badgeText = '❌ 差し戻し（修正が必要です）';
+    badgeStyle = { backgroundColor: '#fee2e2', color: '#991b1b' };
+  }
 
   const editor = useEditor({
     extensions: [
       Document, Heading, Paragraph, Text, Bold, Italic, Underline, Image,
-      // 🌟 ここを追加: エディタ本体にもリストとリンクの拡張を登録
       BulletList,
       OrderedList,
       ListItem,
@@ -175,8 +182,6 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
   });
 
   const { isPending: isSaving, mutate } = useSavePressReleaseMutation();
-
-  // 🌟 ここを追加: 5秒ごとの自動保存ロジック（差分チェック付き）を復活
   const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSavedRef = useRef<string>('');
 
@@ -186,8 +191,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
     lastSavedRef.current = JSON.stringify(editor.getJSON());
     if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
 
-autosaveTimerRef.current = setInterval(async () => {
-      // 🌟 追加: 未承認の場合は、ここで処理を止めて自動保存を行わない
+    autosaveTimerRef.current = setInterval(async () => {
       if (!isApproved) return;
 
       const currentTitle = titleRef.current;
@@ -204,7 +208,6 @@ autosaveTimerRef.current = setInterval(async () => {
         
         if (response.ok) { 
           lastSavedRef.current = currentContent; 
-          console.log('📝 5秒ごとの自動保存が完了しました');
         }
       } catch (e) { 
         console.error('[autosave] error', e); 
@@ -212,23 +215,17 @@ autosaveTimerRef.current = setInterval(async () => {
     }, 5000);
 
     return () => { if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current); };
-  }, [editor]);
+  }, [editor, isApproved]);
 
-
-  // 🌟 ここを変更: 保存前にAIチェックを挟む
   const handleSave = async () => {
     if (!editor) return;
     
-    // 文字列として本文を取得
     const text = editor.getText();
-
     setIsCheckingAI(true);
     try {
-      // 1. AIコンプライアンスチェックAPIを叩く
       const aiRes = await fetch('/api/check-compliance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // タイトルと本文を結合してAIに渡す
         body: JSON.stringify({ text: `【タイトル】\n${title}\n\n【本文】\n${text}` }),
       });
 
@@ -236,11 +233,8 @@ autosaveTimerRef.current = setInterval(async () => {
         const aiData = await aiRes.json();
         const aiResult = aiData.result;
 
-        // 2. もしAIの返答が「OK」でなければ（警告があれば）、確認ダイアログを出す
         if (aiResult !== 'OK') {
           const proceed = window.confirm(`⚠️ 【AIコンプライアンス警告】\n\n公開してはいけない情報が含まれている可能性があります：\n\n${aiResult}\n\n本当にこのまま保存（公開）してよろしいですか？`);
-          
-          // 「キャンセル」を押したら保存処理をストップ
           if (!proceed) {
             setIsCheckingAI(false);
             return;
@@ -249,12 +243,10 @@ autosaveTimerRef.current = setInterval(async () => {
       }
     } catch (e) {
       console.error('AIチェックエラー:', e);
-      // AIエラー時は進行を妨げないようにするか、要件に合わせて調整
     } finally {
       setIsCheckingAI(false);
     }
 
-    // 3. AIチェックを通過（または無視して強行）したら、本来の保存処理を実行
     const content = JSON.stringify(editor.getJSON());
     mutate({ title, content });
     lastSavedRef.current = content; 
@@ -287,38 +279,29 @@ autosaveTimerRef.current = setInterval(async () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <h1 className={styles.title}>プレスリリースエディター</h1>
           
-          {/* ステータスバッジ（リアルタイムで変わる！） */}
           <span style={{
             padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 'bold',
-            backgroundColor: isApproved ? '#d1fae5' : '#f3f4f6',
-            color: isApproved ? '#065f46' : '#4b5563',
-            transition: 'all 0.3s'
+            transition: 'all 0.3s', ...badgeStyle
           }}>
-            {isApproved ? '✅ 承認済み' : '✏️ 編集中 / 承認待ち'}
+            {badgeText}
           </span>
         </div>
-          {/* 🌟 変更: /starter への遷移ボタンを実装 */}
-          <div>
-            <NextLink 
-              href="/starter" 
-              style={{
-                padding: '8px 16px', 
-                borderRadius: '6px', 
-                border: '1px solid #d1d5db', 
-                backgroundColor: '#ffffff', 
-                color: '#374151', 
-                fontWeight: 'bold', 
-                textDecoration: 'none',
-                display: 'inline-block',
-                fontSize: '14px',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-              }}
-            >
-              チュートリアルへ
-            </NextLink>
-          </div>
+          
+        <div>
+          <NextLink 
+            href="/starter" 
+            style={{
+              padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db', 
+              backgroundColor: '#ffffff', color: '#374151', fontWeight: 'bold', 
+              textDecoration: 'none', display: 'inline-block', fontSize: '14px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            チュートリアル
+          </NextLink>
+        </div>
+
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {/* メール送信UI */}
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
               type="email"
@@ -340,8 +323,6 @@ autosaveTimerRef.current = setInterval(async () => {
             </button>
           </div>
 
-          {/* 🌟 変更: 未承認の場合は保存ボタンを無効化し、マウスカーソルも禁止マークにする */}
-{/* 🌟 ここを変更: AIチェック中の表示と無効化を追加 */}
           <button 
             onClick={handleSave} 
             className={styles.saveButton} 
@@ -358,6 +339,17 @@ autosaveTimerRef.current = setInterval(async () => {
 
       <main className={styles.main}>
         <div className={styles.editorWrapper}>
+
+          {/* 🌟 追加: 承認者からのコメントがある場合にハイライト表示 */}
+          {approverComment && (
+            <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '1px solid #f59e0b' }}>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#92400e', fontWeight: 'bold' }}>💬 承認者からのコメント</h3>
+              <p style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#92400e', fontSize: '14px' }}>
+                {approverComment}
+              </p>
+            </div>
+          )}
+
           <div className={styles.titleInputWrapper}>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="タイトル" className={styles.titleInput} />
           </div>
@@ -375,7 +367,6 @@ autosaveTimerRef.current = setInterval(async () => {
         </div>
       </main>
 
-      {/* 🌟 ここを追加: リストやリンクを正しく表示するためのCSSを復活 */}
       <style jsx global>{`
         .tiptap-container .tiptap {
           padding: 1rem;

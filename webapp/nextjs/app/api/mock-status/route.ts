@@ -1,25 +1,37 @@
 // app/api/mock-status/route.ts
 import { NextResponse } from 'next/server';
 
-// サーバーのメモリ上にステータスを保持する（PM2が動いている限り記憶されます）
-const globalStore = globalThis as unknown as { currentStatus: string };
+// 🌟 コメントも一緒に保存できるように拡張
+const globalStore = globalThis as unknown as { currentStatus: string; currentComment: string };
 if (!globalStore.currentStatus) {
-  globalStore.currentStatus = 'draft'; // 初期状態は下書き
+  globalStore.currentStatus = 'draft';
+  globalStore.currentComment = '';
 }
 
-// ステータスを取得する
 export async function GET() {
-  return NextResponse.json({ status: globalStore.currentStatus });
+  return NextResponse.json({ 
+    status: globalStore.currentStatus, 
+    comment: globalStore.currentComment 
+  });
 }
 
-// 承認する（ステータスを approved にする）
-export async function POST() {
-  globalStore.currentStatus = 'approved';
-  return NextResponse.json({ status: globalStore.currentStatus });
+// 🌟 JSONでステータスとコメントを受け取るように変更
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    globalStore.currentStatus = body.status || 'approved';
+    if (body.comment !== undefined) {
+      globalStore.currentComment = body.comment;
+    }
+    return NextResponse.json({ status: globalStore.currentStatus, comment: globalStore.currentComment });
+  } catch (e) {
+    globalStore.currentStatus = 'approved';
+    return NextResponse.json({ status: globalStore.currentStatus, comment: globalStore.currentComment });
+  }
 }
 
-// 編集されたら下書きに戻す（必要に応じて）
 export async function PUT() {
   globalStore.currentStatus = 'draft';
-  return NextResponse.json({ status: globalStore.currentStatus });
+  // 編集開始でdraftに戻っても、コメントは「修正指示」として残しておく
+  return NextResponse.json({ status: globalStore.currentStatus, comment: globalStore.currentComment });
 }
