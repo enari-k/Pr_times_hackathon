@@ -38,7 +38,7 @@ export async function POST(req: Request) {
           <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
             <p><strong>タイトル:</strong> ${title}</p>
           </div>
-          <a href="${baseUrl}/editor" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;">記事を確認する</a>
+          <a href="${baseUrl}/readpreview" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;">記事を確認する</a>
           <a href="${approvalUrl}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;">承認画面へ移動する</a>
         </div>
       `,

@@ -303,6 +303,18 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
           >
             チュートリアル
           </NextLink>
+          {/* 🌟 追加: プレビュー画面へのリンク */}
+          <NextLink 
+            href="/preview" 
+            style={{
+              padding: '8px 16px', borderRadius: '6px', border: '1px solid #3b82f6', 
+              backgroundColor: '#eff6ff', color: '#1d4ed8', fontWeight: 'bold', 
+              textDecoration: 'none', display: 'inline-block', fontSize: '14px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            👁️ プレビュー
+          </NextLink>
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
