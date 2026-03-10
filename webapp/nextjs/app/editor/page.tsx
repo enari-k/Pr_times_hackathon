@@ -184,7 +184,10 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
     lastSavedRef.current = JSON.stringify(editor.getJSON());
     if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
 
-    autosaveTimerRef.current = setInterval(async () => {
+autosaveTimerRef.current = setInterval(async () => {
+      // 🌟 追加: 未承認の場合は、ここで処理を止めて自動保存を行わない
+      if (!isApproved) return;
+
       const currentTitle = titleRef.current;
       const currentContent = JSON.stringify(editor.getJSON());
       
@@ -278,7 +281,17 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
             </button>
           </div>
 
-          <button onClick={handleSave} className={styles.saveButton} disabled={isSaving}>
+          {/* 🌟 変更: 未承認の場合は保存ボタンを無効化し、マウスカーソルも禁止マークにする */}
+          <button 
+            onClick={handleSave} 
+            className={styles.saveButton} 
+            disabled={isSaving || !isApproved}
+            style={{
+              opacity: isSaving || !isApproved ? 0.5 : 1,
+              cursor: isSaving || !isApproved ? 'not-allowed' : 'pointer'
+            }}
+            title={!isApproved ? '承認されるまで保存（公開）できません' : '保存する'}
+          >
             {isSaving ? '保存中...' : '💾 保存'}
           </button>
         </div>
