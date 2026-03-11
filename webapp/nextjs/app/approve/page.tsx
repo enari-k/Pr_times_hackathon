@@ -7,7 +7,7 @@ import ReadPreviewPage from '../readpreview/page';
 
 export default function ApprovePage() {
   const queryClient = useQueryClient();
-  const [comment, setComment] = useState(''); // 🌟 コメント用のState
+  const [comment, setComment] = useState(''); //コメント用のState
 
   // 現在のステータスとコメントを取得（3秒ごとに自動更新）
   const { data, isPending } = useQuery({
@@ -59,12 +59,12 @@ export default function ApprovePage() {
           backgroundColor: isApproved ? '#d1fae5' : isRejected ? '#fee2e2' : '#fef3c7',
           color: isApproved ? '#065f46' : isRejected ? '#991b1b' : '#92400e'
         }}>
-          {isApproved ? '✅ 承認済み' : isRejected ? '❌ 差し戻し' : '⏳ 承認待ち'}
+          {isApproved ? '承認済み' : isRejected ? '差し戻し' : '承認待ち'}
         </span>
       </div>
       {/* 🌟 コメント入力欄 */}
       <div style={{ marginBottom: '24px' }}>
-        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px' }}>💬 フィードバック・コメント</label>
+        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px' }}>フィードバック・コメント</label>
         <textarea 
           value={comment}
           onChange={(e) => setComment(e.target.value)}
@@ -83,7 +83,7 @@ export default function ApprovePage() {
             backgroundColor: '#ef4444', color: 'white', opacity: isUpdating ? 0.6 : 1
           }}
         >
-          ❌ 差し戻す
+          差し戻す
         </button>
         
         <button
@@ -94,7 +94,7 @@ export default function ApprovePage() {
             backgroundColor: '#10b981', color: 'white', opacity: isUpdating ? 0.6 : 1
           }}
         >
-          ✅ 承認する
+          承認する
         </button>
       </div>
     </div>
