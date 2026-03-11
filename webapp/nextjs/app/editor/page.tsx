@@ -119,7 +119,7 @@ const Toolbar = ({
       <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={getButtonStyle('bulletList')}>• 箇条書き</button>
       <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={getButtonStyle('orderedList')}>1. 番号</button>
       
-      <button type="button" onClick={setLink} className={getButtonStyle('link')}>🔗 リンク</button>
+      <button type="button" onClick={setLink} className={getButtonStyle('link')}>リンク</button>
       
       <button 
         type="button" 
@@ -426,7 +426,7 @@ const handleAiGenerate = async () => {
               boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
             }}
           >
-            👁️ プレビュー
+            プレビュー
           </NextLink>
         </div>
 
@@ -443,7 +443,7 @@ const handleAiGenerate = async () => {
               onClick={handleSendApproval} 
               disabled={isSendingEmail || !approvalEmail}
               style={{
-                padding: '8px 16px', borderRadius: '6px', border: 'none', fontWeight: 'bold',
+                padding: '8px 16px', borderRadius: '6px', border: 'none', 
                 backgroundColor: isSendingEmail || !approvalEmail ? '#9ca3af' : '#2563eb', color: 'white',
                 cursor: isSendingEmail || !approvalEmail ? 'not-allowed' : 'pointer',
               }}
@@ -481,7 +481,7 @@ const handleAiGenerate = async () => {
         <div className={styles.editorWrapper}>
           {approverComment && (
             <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '1px solid #f59e0b' }}>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#92400e', fontWeight: 'bold' }}>💬 承認者からのコメント</h3>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#92400e', fontWeight: 'bold' }}>承認者からのコメント</h3>
               <p style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#92400e', fontSize: '14px' }}>{approverComment}</p>
             </div>
           )}

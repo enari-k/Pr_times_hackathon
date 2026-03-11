@@ -83,10 +83,10 @@ function PreviewRenderer({ title, content }: { title: string; content: any }) {
             textDecoration: 'none', display: 'inline-block', fontSize: '14px',
           }}
         >
-          ✏️ 編集に戻る
+          編集に戻る
         </NextLink>
         <span style={{ color: '#6b7280', fontSize: '14px', fontWeight: 'bold' }}>
-          👁️ プレビューモード
+          プレビューモード
         </span>
       </div>
 

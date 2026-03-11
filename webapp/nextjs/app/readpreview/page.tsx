@@ -76,7 +76,7 @@ function PreviewRenderer({ title, content }: { title: string; content: any }) {
       {/* 戻るボタンとヘッダー */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <span style={{ color: '#6b7280', fontSize: '14px', fontWeight: 'bold' }}>
-          👁️ プレビューモード
+          プレビューモード
         </span>
       </div>
 
