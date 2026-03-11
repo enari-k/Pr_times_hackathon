@@ -124,7 +124,6 @@ const Toolbar = ({
       <button 
         type="button" 
         onClick={unsetLink} 
-        disabled={!editor.isActive('link')} 
         className="px-3 py-2 border rounded font-bold bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-100 border-gray-300"
       >
         解除
