@@ -28,6 +28,7 @@ import { validateContent, validateTitle } from '@/utils/validation';
 
 import type { PressRelease } from '@/lib/types';
 import styles from './page.module.css';
+import AIPreviewPanel from '@/components/ai/AIPreviewPanel';
 
 const PRESS_RELEASE_ID = 1;
 const queryKey = ['press-release', PRESS_RELEASE_ID];
@@ -75,7 +76,7 @@ const Toolbar = ({
   showAiBalloon, 
   aiPrompt, 
   setAiPrompt, 
-  handleAiGenerate,
+  onAcceptTitle, 
   balloonRef 
 }: { 
   editor: TiptapEditor | null;
@@ -86,6 +87,7 @@ const Toolbar = ({
   setAiPrompt: (val: string) => void;
   handleAiGenerate: () => void;
   balloonRef: React.RefObject<HTMLDivElement | null>;
+  onAcceptTitle: (title: string) => void;
 }) => {
   if (!editor) return null;
 
@@ -138,7 +140,7 @@ const Toolbar = ({
           disabled={isGenerating}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 shadow-md disabled:opacity-50 text-sm"
         >
-          {isGenerating ? '✨ 生成中...' : '✨ AIで記事作成'}
+          {isGenerating ? '生成中...' : 'AIで記事作成'}
         </button>
 
         {showAiBalloon && (
@@ -150,7 +152,6 @@ const Toolbar = ({
             <div className="absolute -top-2 left-6 w-4 h-4 bg-white border-t border-l border-indigo-100 rotate-45"></div>
             
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-lg">✨</span>
               <label className="block text-md font-bold text-gray-800">AIに執筆を依頼する</label>
             </div>
 
@@ -164,14 +165,45 @@ const Toolbar = ({
               style={{ height: '200px', width: '800px' }} // ← ここで高さと横幅を変更
             />
 
-            <button 
-              type="button"
-              onClick={handleAiGenerate}
-              disabled={!aiPrompt.trim()}
-              className="w-full mt-4 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
-            >
-              この記事の内容で下書きを生成する
-            </button>
+            {showAiBalloon && (
+              <div className="absolute top-full left-0 mt-3 p-6 bg-white border border-indigo-100 rounded-2xl shadow-2xl z-[100]">
+                {/* ... textareaはそのまま ... */}
+
+                <AIPreviewPanel
+                  editor={editor}
+                  buttonIdleText="この記事の内容で下書きを生成する"
+                  buttonGeneratingText="生成中..."
+                  buttonRegenText="再生成"
+                  canGenerate={!!aiPrompt.trim()}
+                  onAcceptTitle={onAcceptTitle}
+                  generate={async () => {
+                    const response = await fetch('/api/generate', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ prompt: aiPrompt }),
+                    });
+                    if (!response.ok) throw new Error('AI生成失敗');
+                    const data = await response.json();
+
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = data.content ?? '';
+
+                    const headings = tempDiv.querySelectorAll('h1,h2,h3,h4,h5,h6');
+                    headings.forEach((heading) => {
+                      const p = document.createElement('p');
+                      p.innerHTML = heading.innerHTML;
+                      heading.parentNode?.replaceChild(p, heading);
+                    });
+
+                    return {
+                      previewHtml: tempDiv.innerHTML,
+                      nextTitle: (data.title ?? '').trim(),
+                      summary: '', 
+                    };
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -504,6 +536,7 @@ const handleAiGenerate = async () => {
               setAiPrompt={setAiPrompt}
               handleAiGenerate={handleAiGenerate}
               balloonRef={balloonRef}
+              onAcceptTitle={(t) => setTitle(t)} 
             />
 
             <div className="flex p-2 gap-2 bg-gray-100 border-b overflow-x-auto">
