@@ -44,7 +44,6 @@ ${comment}
   });
 
   const content = response.choices[0].message.content;
-  console.log(content)
 
   return NextResponse.json(JSON.parse(content || "{}"));
 }
