@@ -67,6 +67,7 @@ function useSavePressReleaseMutation() {
 }
 
 // --- ツールバーコンポーネント ---
+// --- ツールバーコンポーネント（修正版） ---
 const Toolbar = ({ 
   editor, 
   onAiToggle, 
@@ -111,7 +112,7 @@ const Toolbar = ({
   };
 
   return (
-    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap items-center">
+    <div className="flex gap-2 p-3 border-b bg-gray-50 text-black flex-wrap items-center overflow-visible">
       <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={getButtonStyle('bold')}>B</button>
       <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={getButtonStyle('italic')}>I</button>
       <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()} className={getButtonStyle('underline')}>U</button>
@@ -129,34 +130,45 @@ const Toolbar = ({
         解除
       </button>
 
-      <div className="relative ml-2" ref={balloonRef}>
+      {/* AIボタンと吹き出し */}
+      <div className="relative ml-2 overflow-visible" ref={balloonRef}>
         <button 
           type="button"
           onClick={onAiToggle} 
           disabled={isGenerating}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 shadow-md disabled:opacity-50 text-sm"
         >
-          {isGenerating ? '生成中...' : 'AIで記事作成'}
+          {isGenerating ? '✨ 生成中...' : '✨ AIで記事作成'}
         </button>
 
         {showAiBalloon && (
-          <div className="absolute top-full left-0 mt-3 w-[500px] p-6 bg-white border border-indigo-100 rounded-2xl shadow-2xl z-50 animate-in fade-in zoom-in duration-200 cursor-default">
+          // 🛠 修正ポイント1: 吹き出し全体の幅をインラインスタイルで指定
+          <div 
+            className="absolute top-full left-0 mt-3 p-6 bg-white border border-indigo-100 rounded-2xl shadow-2xl z-[100] animate-in fade-in zoom-in duration-200 cursor-default"
+          
+          >
             <div className="absolute -top-2 left-6 w-4 h-4 bg-white border-t border-l border-indigo-100 rotate-45"></div>
+            
             <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">✨</span>
               <label className="block text-md font-bold text-gray-800">AIに執筆を依頼する</label>
             </div>
+
+            {/* 🛠 修正ポイント2: textareaの高さをインラインスタイルで指定 */}
             <textarea
               autoFocus
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="商品の特徴や自社の強みを入力してください。"
-              className="w-full p-4 border border-indigo-100 rounded-xl text-black text-base focus:ring-4 focus:ring-indigo-50 outline-none min-h-[220px] transition-all resize-y"
+              placeholder="商品の特徴、背景、ターゲット、自社の強みなどを具体的に入力してください。詳細な情報があるほど、精度の高い下書きが生成されます。"
+              className="w-full p-4 border border-indigo-100 rounded-xl text-black text-base focus:ring-4 focus:ring-indigo-50 outline-none transition-all resize-y leading-relaxed"
+              style={{ height: '200px', width: '800px' }} // ← ここで高さと横幅を変更
             />
+
             <button 
               type="button"
               onClick={handleAiGenerate}
               disabled={!aiPrompt.trim()}
-              className="w-full mt-4 bg-indigo-600 text-white py-3 rounded-xl font-bold text-md hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
+              className="w-full mt-4 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
             >
               この記事の内容で下書きを生成する
             </button>
@@ -326,7 +338,7 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
     }
   };
 
-  const handleAiGenerate = async () => {
+const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
     setIsGenerating(true);
     setShowAiBalloon(false);
@@ -337,13 +349,34 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
         body: JSON.stringify({ prompt: aiPrompt }),
       });
       const data = await response.json();
+      
       if (data.title && data.content) {
-        setTitle(data.title);
-        editor?.commands.setContent(data.content);
+        // タイトルも余計な空白を削る
+        setTitle(data.title.trim());
+
+        // 🛠 修正ポイント: コンテンツの強制平坦化
+        // 1. 一時的な要素を作ってHTMLとして解釈させる
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = data.content;
+
+        // 2. すべての H1, H2, H3 などの見出しタグを P（段落）に変換する
+        const headings = tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        headings.forEach(heading => {
+          const p = document.createElement('p');
+          p.innerHTML = heading.innerHTML; // 中身の文字は維持
+          heading.parentNode?.replaceChild(p, heading);
+        });
+
+        // 3. エディタに流し込む（これにより文字サイズが統一されます）
+        editor?.commands.setContent(tempDiv.innerHTML);
+        
         window.scrollTo({ top: 400, behavior: 'smooth' });
       }
-    } catch (e) { alert("AI生成に失敗しました。"); }
-    finally { setIsGenerating(false); }
+    } catch (e) { 
+      alert("AI生成に失敗しました。"); 
+    } finally { 
+      setIsGenerating(false); 
+    }
   };
 
   useEffect(() => {
