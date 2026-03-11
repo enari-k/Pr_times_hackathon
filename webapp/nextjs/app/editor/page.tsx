@@ -314,14 +314,6 @@ function PressReleaseEditor({ initialTitle, initialContent }: { initialTitle: st
     if (!editor) return;
     if (!title.trim()) return alert("タイトルを入力してください");
 
-    // バリデーションチェック
-    const validateResponse = await fetch('/api/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content: editor.getText() }),
-    });
-    if (!validateResponse.ok) return alert('バリデーションに失敗しました');
-
     // AIコンプライアンスチェック
     setIsCheckingAI(true);
     try {
